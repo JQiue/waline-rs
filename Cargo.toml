@@ -1,5 +1,5 @@
 [package]
-name = "waline-rs"
+name = "waline-mini"
 version = "0.1.0"
 edition = "2021"
 
