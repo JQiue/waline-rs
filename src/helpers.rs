@@ -1,8 +1,6 @@
 pub mod token {
   use jsonwebtoken::errors::ErrorKind;
-  use jsonwebtoken::{
-    decode, encode, Algorithm, DecodingKey, EncodingKey, Header, TokenData, Validation,
-  };
+  use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
   use serde::{Deserialize, Serialize};
   use time::{Duration, OffsetDateTime};
 
@@ -43,7 +41,7 @@ pub mod token {
       // normalize the timestamps by stripping of microseconds
       let now = OffsetDateTime::now_utc();
       // let iat = now;
-      let exp = now + Duration::seconds(expire);
+      let exp = now + Duration::days(expire);
       Self { email, exp }
     }
   }
@@ -64,7 +62,8 @@ pub mod token {
     let result = match decode::<Claims>(&token, &key, &validation) {
       Ok(c) => Ok(c.claims.email),
       Err(err) => match *err.kind() {
-        ErrorKind::InvalidToken => Err("Token is invalid".to_string()), // Example on how to handle a specific error
+        ErrorKind::InvalidToken => Err("Token is invalid".to_string()),
+        ErrorKind::ExpiredSignature => Err("token expired".to_string()),
         _ => Err("Some other errors".to_string()),
       },
     };

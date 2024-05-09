@@ -171,7 +171,6 @@ async fn get_comment(query: Query<GetCommentQuery>, data: Data<AppState>) -> imp
       let browser = browser;
       let os = os;
       let user: wl_users::Model;
-      let r#type = "".to_string();
       let level = 0;
       let mut label = None;
       let mut r#type = None;
@@ -519,7 +518,7 @@ async fn update_article(
 async fn delete_comment(data: Data<AppState>, path: Path<u32>) -> impl Responder {
   let conn = &data.conn;
   let id = path.into_inner();
-  WlComment::delete_by_id(id).exec(conn).await;
+  let _ = WlComment::delete_by_id(id).exec(conn).await;
   HttpResponse::Ok().json(json! ({
     "data": "",
     "errmsg": "".to_string(),
@@ -675,7 +674,7 @@ async fn user_login(data: Data<AppState>, body: Json<ApiTokenBody>) -> impl Resp
         "google": user.google,
         "weibo": user.weibo,
         "qq": user.qq,
-        "2fa": null,
+        "2fa": user.two_factor_auth,
         "createdAt": user.created_at,
         "updatedAt": user.updated_at,
         "objectId": user.id,
@@ -707,49 +706,68 @@ async fn get_login_user_info(req: HttpRequest, data: Data<AppState>) -> impl Res
       let res = token::verify(value.to_string(), "waline".to_string());
       match res {
         Ok(value) => {
-          println!("{}", value)
+          println!(">>> {}", value);
+          let conn = &data.conn;
+          let user = WlUsers::find()
+            .filter(wl_users::Column::Email.eq(value))
+            .one(conn)
+            .await
+            .unwrap();
+          match user {
+            Some(user) => {
+              fn extract_email_prefix(email: String) -> Option<String> {
+                let mut res = email.split('@');
+                res.next().map(|prefix| prefix.to_string())
+              }
+              let avatar = if let Some(prefix) = extract_email_prefix(user.email.clone()) {
+                format!("https://q1.qlogo.cn/g?b=qq&nk={}&s=100", prefix)
+              } else {
+                "https://seccdn.libravatar.org/avatar/d41d8cd98f00b204e9800998ecf8427e".to_string()
+              };
+              let mailMd5 = format!("{:x}", md5::compute(user.email.clone()));
+              let data = json!({
+                "display_name": user.display_name,
+                "email": user.email,
+                "type": user.r#type,
+                "label": user.label,
+                "url": user.url,
+                "avatar": avatar,
+                "github": user.github,
+                "twitter": user.twitter,
+                "facebook": user.facebook,
+                "google": user.google,
+                "weibo": user.weibo,
+                "qq": user.qq,
+                "2fa": user.two_factor_auth,
+                "objectId": user.id,
+                "mailMd5": mailMd5,
+              });
+              return HttpResponse::Ok().json(json! ({
+                "errno": 0,
+                "errmsg": "",
+                "data": data,
+              }));
+            }
+            None => {
+              return HttpResponse::Ok().json(json! ({
+                "errno": 1000,
+                "errmsg": "no this user",
+              }));
+            }
+          }
         }
-        Err(_) => panic!(""),
+        Err(err) => {
+          return HttpResponse::Ok().json(json! ({
+            "errno": 1000,
+            "errmsg": err,
+          }));
+        }
       }
-      let _conn = &data.conn;
-      HttpResponse::Ok().json(json! ({
-        "errno": 0,
-        "errmsg": "",
-        "data": [],
-      }))
     }
     None => HttpResponse::Ok().json(json! ({
       "errno":1000,
     })),
   }
-
-  // let user = WlUsers::find();
-  //   .filter(wl_users::Column::Email.eq(body.email.clone()))
-  //   .one(conn)
-  //   .await
-  //   .unwrap();
-
-  // let data = json!({
-  //   "display_name": user.display_name,
-  //   "email": user.email,
-  //   "password": null,
-  //   "type": user.r#type,
-  //   "label": user.label,
-  //   "url": user.url,
-  //   "avatar": avatar,
-  //   "github": user.github,
-  //   "twitter": user.twitter,
-  //   "facebook": user.facebook,
-  //   "google": user.google,
-  //   "weibo": user.weibo,
-  //   "qq": user.qq,
-  //   "2fa": null,
-  //   "createdAt": user.created_at,
-  //   "updatedAt": user.updated_at,
-  //   "objectId": user.id,
-  //   "mailMd5": mailMd5,
-  //   "token": token
-  // });
 }
 
 #[delete("/api/token")]
@@ -831,17 +849,21 @@ async fn get_2fa(data: Data<AppState>, query: Query<Get2faQuery>) -> impl Respon
       let res = WlUsers::find()
         .filter(wl_users::Column::Email.eq(email))
         .filter(wl_users::Column::TwoFactorAuth.is_not_null())
+        .filter(wl_users::Column::TwoFactorAuth.ne(""))
         .one(conn)
         .await
         .unwrap();
       match res {
-        Some(_) => HttpResponse::Ok().json(json!({
-          "errno": 0,
-          "errmsg": "",
-          "data": {
-            "enable": true
-          }
-        })),
+        Some(res) => {
+          println!(">>> {:?}", res.two_factor_auth);
+          HttpResponse::Ok().json(json!({
+            "errno": 0,
+            "errmsg": "",
+            "data": {
+              "enable": true
+            }
+          }))
+        }
         None => HttpResponse::Ok().json(json!({
           "errno": 0,
           "errmsg": "",
@@ -912,9 +934,40 @@ struct UiLoginPageQeury {
 
 async fn ui_login_page(query: Query<UiLoginPageQeury>) -> HttpResponse {
   match query.redirect.clone() {
-    Some(path) => HttpResponse::Found()
-      .insert_header(("Location", path))
-      .finish(),
+    Some(_path) => {
+      let SITE_URL = env::var("SITE_URL").ok().unwrap_or("''".to_string());
+      let SITE_NAME = env::var("SITE_NAME").ok().unwrap_or("''".to_string());
+      let recaptchaV3Key = env::var("recaptchaV3Key")
+        .ok()
+        .unwrap_or("undefined".to_string());
+      let turnstileKey = env::var("turnstileKey")
+        .ok()
+        .unwrap_or("undefined".to_string());
+      let serverURL = env::var("serverURL").ok().unwrap_or("".to_string());
+      HttpResponse::Ok()
+        .content_type(ContentType::html())
+        .body(format!(
+          r#"<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Waline Management System</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+  </head>
+  <body>
+    <script>
+    window.SITE_URL = {SITE_URL};
+    window.SITE_NAME = {SITE_NAME};
+    window.recaptchaV3Key = {recaptchaV3Key};
+    window.turnstileKey = {turnstileKey};
+    window.serverURL = '{serverURL}/api/';
+    </script>
+    <script src="//unpkg.com/@waline/admin"></script>
+  </body>
+</html>
+    "#
+        ))
+    }
     None => {
       let SITE_URL = env::var("SITE_URL").ok().unwrap_or("''".to_string());
       let SITE_NAME = env::var("SITE_NAME").ok().unwrap_or("''".to_string());

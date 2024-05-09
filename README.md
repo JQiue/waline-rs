@@ -15,4 +15,6 @@ Although the functionality is not yet complete, the goal of waline-mini is not t
 + Easy to use: Offers similar APIs to the original Waline, making it easy to integrate and use.
 + Continual updates: Will be updated regularly to improve functionality and keep up with the development of Waline.
 
-> <https://waline.js.org/next/api/>
+## References
+
++ [waline-api](https://waline.js.org/next/api/)
