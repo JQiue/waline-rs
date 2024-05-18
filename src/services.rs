@@ -20,21 +20,27 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::env;
 
+fn extract_email_prefix(email: String) -> Option<String> {
+  let mut res = email.split('@');
+  res.next().map(|prefix| prefix.to_string())
+}
+
+fn render_markdown(markdown: &str) -> String {
+  let parser = pulldown_cmark::Parser::new(markdown);
+  let parser = parser.map(|event| match event {
+    Event::SoftBreak => Event::HardBreak,
+    _ => event,
+  });
+  let mut html_output = String::new();
+  pulldown_cmark::html::push_html(&mut html_output, parser);
+  html_output
+}
+
 #[derive(Serialize, Deserialize)]
 struct ResponseModel<T> {
   data: T,
   errmsg: String,
   errno: i8,
-}
-
-#[allow(dead_code)]
-#[derive(Deserialize)]
-struct GetCommentQuery {
-  path: String,
-  pageSize: i32,
-  page: i32,
-  lang: String,
-  sortBy: String,
 }
 
 #[derive(Serialize, Debug)]
@@ -60,10 +66,92 @@ struct DataEntry {
   children: Vec<DataEntry>,
 }
 
+fn build_data_entry(comment: wl_comment::Model) -> DataEntry {
+  let (browser, os) = ua::parse(comment.ua.as_ref().unwrap().to_string());
+  DataEntry {
+    status: comment.status,
+    link: comment.link,
+    mail: comment.mail.clone(),
+    nick: comment.nick,
+    user_id: comment.user_id,
+    browser,
+    os,
+    r#type: None, // TODO: 获取用户类型
+    objectId: comment.id,
+    ip: comment.ip,
+    orig: comment.comment.clone(),
+    time: comment.created_at.unwrap().timestamp_millis(),
+    pid: comment.pid,
+    rid: comment.rid,
+    comment: Some(render_markdown(&comment.comment.as_ref().unwrap())),
+    avatar: if let Some(_) = comment.user_id {
+      format!(
+        "https://q1.qlogo.cn/g?b=qq&nk={}&s=100",
+        extract_email_prefix(comment.mail.unwrap()).unwrap()
+      )
+    } else {
+      "https://seccdn.libravatar.org/avatar/d41d8cd98f00b204e9800998ecf8427e".to_string()
+    },
+    level: 0,
+    label: None,
+    children: vec![],
+  }
+}
+
+#[derive(Deserialize)]
+struct GetCommentQuery {
+  lang: String,
+  path: String,
+  pageSize: i32,
+  page: i32,
+  sortBy: String,
+  r#type: Option<String>,
+  owner: Option<String>,
+  status: Option<String>,
+  keyword: Option<String>,
+}
+
 /// get comment
 #[get("/api/comment")]
-async fn get_comment(query: Query<GetCommentQuery>, data: Data<AppState>) -> impl Responder {
+async fn get_comment(
+  req: HttpRequest,
+  data: Data<AppState>,
+  query: Query<GetCommentQuery>,
+) -> impl Responder {
   let conn = &data.conn;
+  match query.owner.clone() {
+    Some(owner) => {
+      let mut data = vec![];
+      if owner == "mine" {
+        let _header_value = req.headers().get(AUTHORIZATION).unwrap();
+        let email = "";
+        data = WlComment::find()
+          .filter(wl_comment::Column::Mail.eq(email))
+          .all(conn)
+          .await
+          .unwrap();
+      } else if owner == "all" {
+        data = WlComment::find().all(conn).await.unwrap();
+      }
+
+      return HttpResponse::Ok().json(json!({
+        "data": {
+          "data": data,
+          "page": 1,
+          "pageSize": 10,
+          "spamCount": 0,
+          "totalPages": 5,
+          "waitingCount": 0,
+        },
+        "errmsg": "",
+        "errno": 0
+      }));
+    }
+    None => {
+      println!(">>> None");
+    }
+  }
+
   // 根据 path 获取根评论
   let parrent_comments = wl_comment::Entity::find()
     .filter(wl_comment::Column::Url.contains(query.path.clone()))
@@ -76,63 +164,24 @@ async fn get_comment(query: Query<GetCommentQuery>, data: Data<AppState>) -> imp
   let mut count = parrent_comments.len();
   let mut comments: Vec<DataEntry> = vec![];
 
-  fn extract_email_prefix(email: String) -> Option<String> {
-    let mut res = email.split('@');
-    res.next().map(|prefix| prefix.to_string())
-  }
-
-  for model in parrent_comments {
-    let status = model.status;
-    let link = model.link;
-    let mail = model.mail.clone();
-    let nick = model.nick;
-    let user_id = model.user_id;
-    let objectId = model.id;
-    let orig = model.comment.clone();
-    let ip = model.ip;
-    let pid = model.pid;
-    let rid = model.rid;
-    let markdown_input = model.comment.clone().unwrap().as_str().to_owned();
-    let parser = pulldown_cmark::Parser::new(markdown_input.as_str());
-    let parser = parser.map(|event| match event {
-      Event::SoftBreak => Event::HardBreak,
-      _ => event,
-    });
-    let mut html_output = String::new();
-    pulldown_cmark::html::push_html(&mut html_output, parser);
-    let comment = Some(html_output);
-    let avatar = if let Some(_) = model.user_id {
-      let prefix = extract_email_prefix(mail.clone().unwrap()).unwrap();
-      format!("https://q1.qlogo.cn/g?b=qq&nk={}&s=100", prefix)
-    } else {
-      "https://seccdn.libravatar.org/avatar/d41d8cd98f00b204e9800998ecf8427e".to_string()
-    };
-    let time = model.created_at.unwrap().timestamp_millis();
-    // let time = DateTime::parse_from_str(model.created_at, "%Y-%m-%d %H:%M:%S");
-    let (browser, os) = ua::parse(model.ua.unwrap());
-    let browser = browser;
-    let os = os;
-    let user: wl_users::Model;
-    let level = 0;
-    let mut label = None;
-    let mut r#type = None;
-    match user_id {
+  for parrent_comment in parrent_comments {
+    let mut parrent_data_entry = build_data_entry(parrent_comment.clone());
+    match parrent_data_entry.user_id {
       Some(user_id) => {
-        user = WlUsers::find()
+        let user = WlUsers::find()
           .filter(wl_users::Column::Id.eq(user_id))
           .one(conn)
           .await
           .unwrap()
           .unwrap();
-        label = user.label;
-        r#type = Some(user.r#type);
+        parrent_data_entry.label = user.label;
+        parrent_data_entry.r#type = Some(user.r#type);
       }
       None => {}
     }
-    let mut children = vec![];
     let subcomments = wl_comment::Entity::find()
       .filter(wl_comment::Column::Url.contains(query.path.clone()))
-      .filter(wl_comment::Column::Pid.eq(model.id))
+      .filter(wl_comment::Column::Pid.eq(parrent_comment.id))
       .order_by(wl_comment::Column::InsertedAt, Order::Asc)
       .all(conn)
       .await
@@ -140,100 +189,24 @@ async fn get_comment(query: Query<GetCommentQuery>, data: Data<AppState>) -> imp
 
     for subcomment in subcomments {
       count += 1;
-      let status = subcomment.status;
-      let link = subcomment.link;
-      let mail = subcomment.mail.clone();
-      let nick: Option<String> = subcomment.nick;
-      let user_id = subcomment.user_id;
-      let objectId = subcomment.id;
-      let orig = subcomment.comment.clone();
-      let ip = subcomment.ip;
-      let pid = subcomment.pid;
-      let rid = subcomment.rid;
-      let markdown_input = model.comment.clone().unwrap().as_str().to_owned();
-      let parser = pulldown_cmark::Parser::new(markdown_input.as_str());
-      let parser = parser.map(|event| match event {
-        Event::SoftBreak => Event::HardBreak,
-        _ => event,
-      });
-      let mut html_output = String::new();
-      pulldown_cmark::html::push_html(&mut html_output, parser);
-      let comment = Some(html_output);
-      let avatar = if let Some(_) = model.user_id {
-        let prefix = extract_email_prefix(mail.clone().unwrap()).unwrap();
-        format!("https://q1.qlogo.cn/g?b=qq&nk={}&s=100", prefix)
-      } else {
-        "https://seccdn.libravatar.org/avatar/d41d8cd98f00b204e9800998ecf8427e".to_string()
-      };
-      let time = subcomment.created_at.unwrap().timestamp_millis();
-      // let time = DateTime::parse_from_str(model.created_at, "%Y-%m-%d %H:%M:%S");
-      let (browser, os) = ua::parse(subcomment.ua.unwrap());
-      let browser = browser;
-      let os = os;
-      let user: wl_users::Model;
-      let level = 0;
-      let mut label = None;
-      let mut r#type = None;
-      match user_id {
+      let mut subcomment_data_entry = build_data_entry(subcomment.clone());
+      match subcomment_data_entry.user_id {
         Some(user_id) => {
-          user = WlUsers::find()
+          let user = WlUsers::find()
             .filter(wl_users::Column::Id.eq(user_id))
             .one(conn)
             .await
             .unwrap()
             .unwrap();
-          label = user.label;
-          r#type = Some(user.r#type);
+          subcomment_data_entry.label = user.label;
+          subcomment_data_entry.r#type = Some(user.r#type);
         }
         None => {}
       }
-      let subcomment_children = vec![];
-      let data_entry = DataEntry {
-        status,
-        link,
-        mail,
-        nick,
-        user_id,
-        browser,
-        os,
-        r#type,
-        objectId,
-        ip,
-        orig,
-        time,
-        pid,
-        rid,
-        comment,
-        avatar,
-        level,
-        label,
-        children: subcomment_children,
-      };
-      children.push(data_entry)
+      parrent_data_entry.children.push(subcomment_data_entry)
     }
 
-    let data_entry = DataEntry {
-      status,
-      link,
-      mail,
-      nick,
-      user_id,
-      browser,
-      os,
-      r#type,
-      objectId,
-      ip,
-      orig,
-      time,
-      pid,
-      rid,
-      comment,
-      avatar,
-      level,
-      label,
-      children,
-    };
-    comments.push(data_entry)
+    comments.push(parrent_data_entry)
   }
   let data =
     json!({ "count": count, "data": comments, "page": 1, "pageSize": 10, "totalPages": 0 });
@@ -244,13 +217,11 @@ async fn get_comment(query: Query<GetCommentQuery>, data: Data<AppState>) -> imp
   })
 }
 
-#[allow(dead_code)]
 #[derive(Deserialize)]
 struct CreateCommentQuery {
   lang: String,
 }
 
-#[allow(dead_code)]
 #[derive(Deserialize, Clone)]
 struct CreateCommentBody {
   comment: String,
@@ -386,10 +357,6 @@ async fn create_comment(
           .unwrap()
           .unwrap();
         println!(">>>{:?}", user);
-        fn extract_email_prefix(email: String) -> Option<String> {
-          let mut res = email.split('@');
-          res.next().map(|prefix| prefix.to_string())
-        }
         let avatar = if let Some(prefix) = extract_email_prefix(body.mail.clone()) {
           format!("https://q1.qlogo.cn/g?b=qq&nk={}&s=100", prefix)
         } else {
@@ -551,8 +518,7 @@ async fn update_comment(
   }))
 }
 
-#[allow(dead_code)]
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 struct UserRegisterBody {
   display_name: String,
   email: String,
@@ -647,10 +613,7 @@ async fn user_login(data: Data<AppState>, body: Json<ApiTokenBody>) -> impl Resp
         }
         Err(_) => println!("验证错误"),
       }
-      fn extract_email_prefix(email: String) -> Option<String> {
-        let mut res = email.split('@');
-        res.next().map(|prefix| prefix.to_string())
-      }
+
       let avatar = if let Some(prefix) = extract_email_prefix(user.email.clone()) {
         format!("https://q1.qlogo.cn/g?b=qq&nk={}&s=100", prefix)
       } else {
@@ -715,10 +678,6 @@ async fn get_login_user_info(req: HttpRequest, data: Data<AppState>) -> impl Res
             .unwrap();
           match user {
             Some(user) => {
-              fn extract_email_prefix(email: String) -> Option<String> {
-                let mut res = email.split('@');
-                res.next().map(|prefix| prefix.to_string())
-              }
               let avatar = if let Some(prefix) = extract_email_prefix(user.email.clone()) {
                 format!("https://q1.qlogo.cn/g?b=qq&nk={}&s=100", prefix)
               } else {
