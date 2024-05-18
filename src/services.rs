@@ -20,6 +20,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::env;
 
+const ANONYMOUS_AVATAR: &str =
+  "https://seccdn.libravatar.org/avatar/d41d8cd98f00b204e9800998ecf8427e";
+
 fn extract_email_prefix(email: String) -> Option<String> {
   let mut res = email.split('@');
   res.next().map(|prefix| prefix.to_string())
@@ -90,7 +93,7 @@ fn build_data_entry(comment: wl_comment::Model) -> DataEntry {
         extract_email_prefix(comment.mail.unwrap()).unwrap()
       )
     } else {
-      "https://seccdn.libravatar.org/avatar/d41d8cd98f00b204e9800998ecf8427e".to_string()
+      ANONYMOUS_AVATAR.to_string()
     },
     level: 0,
     label: None,
@@ -217,6 +220,39 @@ async fn get_comment(
   })
 }
 
+fn create_comment_model(
+  user_id: Option<i32>,
+  comment: String,
+  link: String,
+  mail: String,
+  nick: String,
+  ua: String,
+  url: String,
+  pid: Option<i32>,
+  rid: Option<i32>,
+  inserted_at: chrono::DateTime<Utc>,
+  created_at: chrono::DateTime<Utc>,
+  updated_at: chrono::DateTime<Utc>,
+) -> wl_comment::ActiveModel {
+  let created_at: chrono::DateTime<Utc> = Utc::now();
+  wl_comment::ActiveModel {
+    user_id: Set(user_id),
+    comment: Set(Some(comment)),
+    link: Set(Some(link)),
+    mail: Set(Some(mail)),
+    nick: Set(Some(nick)),
+    ua: Set(Some(ua)),
+    url: Set(Some(url)),
+    status: Set("approved".to_string()),
+    pid: Set(pid),
+    rid: Set(rid),
+    inserted_at: Set(Some(inserted_at)),
+    created_at: Set(Some(created_at)),
+    updated_at: Set(Some(updated_at)),
+    ..Default::default()
+  }
+}
+
 #[derive(Deserialize)]
 struct CreateCommentQuery {
   lang: String,
@@ -251,64 +287,62 @@ async fn create_comment(
   _query: Query<CreateCommentQuery>,
   body: Json<CreateCommentBody>,
 ) -> impl Responder {
+  let actix_web::web::Json(CreateCommentBody {
+    comment,
+    link,
+    mail,
+    nick,
+    ua,
+    url,
+    pid,
+    rid,
+    at: _,
+  }) = body;
   let conn = &data.conn;
   let user = WlUsers::find()
-    .filter(wl_users::Column::Email.eq(body.mail.clone()))
-    .filter(wl_users::Column::DisplayName.eq(body.nick.clone()))
+    .filter(wl_users::Column::Email.eq(mail.clone()))
+    .filter(wl_users::Column::DisplayName.eq(nick.clone()))
     .one(conn)
     .await
     .unwrap();
   let model;
-  let markdown_input = body.comment.clone().as_str().to_owned();
-  let parser = pulldown_cmark::Parser::new(markdown_input.as_str());
-  let parser = parser.map(|event| match event {
-    Event::SoftBreak => Event::HardBreak,
-    _ => event,
-  });
-  let mut html_output = String::new();
-  pulldown_cmark::html::push_html(&mut html_output, parser);
-
+  let html_output = render_markdown(&comment);
+  let created_at: chrono::DateTime<Utc> = Utc::now();
   match user {
     Some(user) => {
-      let created_at: chrono::DateTime<Utc> = Utc::now();
-      model = wl_comment::ActiveModel {
-        user_id: Set(Some(user.id as i32)),
-        comment: Set(Some(html_output)),
-        link: Set(Some(body.link.clone())),
-        mail: Set(Some(body.mail.clone())),
-        nick: Set(Some(body.nick.clone())),
-        ua: Set(Some(body.ua.clone())),
-        url: Set(Some(body.url.clone())),
-        status: Set("approved".to_string()),
-        pid: Set(body.pid),
-        rid: Set(body.rid),
-        inserted_at: Set(Some(created_at)),
-        created_at: Set(Some(created_at)),
-        updated_at: Set(Some(created_at)),
-        ..Default::default()
-      };
+      model = create_comment_model(
+        Some(user.id as i32),
+        html_output,
+        link,
+        mail.clone(),
+        nick.clone(),
+        ua,
+        url,
+        pid,
+        rid,
+        created_at,
+        created_at,
+        created_at,
+      );
     }
     None => {
-      let created_at: chrono::DateTime<Utc> = Utc::now();
-      model = wl_comment::ActiveModel {
-        comment: Set(Some(html_output)),
-        link: Set(Some(body.link.clone())),
-        mail: Set(Some(body.mail.clone())),
-        nick: Set(Some(body.nick.clone())),
-        ua: Set(Some(body.ua.clone())),
-        url: Set(Some(body.url.clone())),
-        status: Set("approved".to_string()),
-        pid: Set(body.pid),
-        rid: Set(body.rid),
-        inserted_at: Set(Some(created_at)),
-        created_at: Set(Some(created_at)),
-        updated_at: Set(Some(created_at)),
-        ..Default::default()
-      };
+      model = create_comment_model(
+        None,
+        html_output,
+        link,
+        mail.clone(),
+        nick.clone(),
+        ua,
+        url,
+        pid,
+        rid,
+        created_at,
+        created_at,
+        created_at,
+      );
     }
   }
 
-  let mut data = json!({});
   match WlComment::insert(model).exec(conn).await {
     Ok(result) => {
       let comment = WlComment::find_by_id(result.last_insert_id)
@@ -321,10 +355,10 @@ async fn create_comment(
       let time = comment.created_at.unwrap().timestamp_millis();
       let pid = comment.pid;
       let rid = comment.rid;
-      if body.nick == "匿名" {
-        data = json!({
+      if nick == "匿名" {
+        let mut data = json!({
           "addr":"",
-          "avatar": "https://seccdn.libravatar.org/avatar/d41d8cd98f00b204e9800998ecf8427e",
+          "avatar": ANONYMOUS_AVATAR,
           "browser": browser,
           "comment": comment.comment,
           "like": like,
@@ -350,20 +384,19 @@ async fn create_comment(
         })
       } else {
         let user = WlUsers::find()
-          .filter(wl_users::Column::DisplayName.eq(body.nick.clone()))
-          .filter(wl_users::Column::Email.eq(body.mail.clone()))
+          .filter(wl_users::Column::DisplayName.eq(nick.clone()))
+          .filter(wl_users::Column::Email.eq(mail.clone()))
           .one(conn)
           .await
           .unwrap()
           .unwrap();
         println!(">>>{:?}", user);
-        let avatar = if let Some(prefix) = extract_email_prefix(body.mail.clone()) {
+        let avatar = if let Some(prefix) = extract_email_prefix(mail.clone()) {
           format!("https://q1.qlogo.cn/g?b=qq&nk={}&s=100", prefix)
         } else {
-          "https://seccdn.libravatar.org/avatar/d41d8cd98f00b204e9800998ecf8427e".to_string()
+          ANONYMOUS_AVATAR.to_string()
         };
-
-        data = json!({
+        let mut data = json!({
           "addr":"",
           "avatar": avatar,
           "browser": browser,
@@ -396,7 +429,10 @@ async fn create_comment(
         })
       }
     }
-    Err(err) => panic!("{err}"),
+    Err(err) => HttpResponse::Ok().json(json! ({
+      "errmsg": err.to_string(),
+      "errno": 1000,
+    })),
   }
 }
 
@@ -416,12 +452,12 @@ async fn get_article(data: Data<AppState>, query: Query<GetArticleQuery>) -> imp
   }
   let mut data: Vec<DataEntry> = vec![];
   for path in query.path.split(",") {
-    let res = WlCounter::find()
-      .filter(wl_counter::Column::Url.contains(path))
+    let model = WlCounter::find()
+      .filter(wl_counter::Column::Url.eq(path))
       .one(conn)
       .await
+      .unwrap()
       .unwrap();
-    let model = res.unwrap();
     data.push(DataEntry {
       time: model.time.unwrap(),
     });
@@ -617,7 +653,7 @@ async fn user_login(data: Data<AppState>, body: Json<ApiTokenBody>) -> impl Resp
       let avatar = if let Some(prefix) = extract_email_prefix(user.email.clone()) {
         format!("https://q1.qlogo.cn/g?b=qq&nk={}&s=100", prefix)
       } else {
-        "https://seccdn.libravatar.org/avatar/d41d8cd98f00b204e9800998ecf8427e".to_string()
+        ANONYMOUS_AVATAR.to_string()
       };
 
       let payload = token::Claims::new(user.email.clone(), 7);
@@ -681,7 +717,7 @@ async fn get_login_user_info(req: HttpRequest, data: Data<AppState>) -> impl Res
               let avatar = if let Some(prefix) = extract_email_prefix(user.email.clone()) {
                 format!("https://q1.qlogo.cn/g?b=qq&nk={}&s=100", prefix)
               } else {
-                "https://seccdn.libravatar.org/avatar/d41d8cd98f00b204e9800998ecf8427e".to_string()
+                ANONYMOUS_AVATAR.to_string()
               };
               let mailMd5 = format!("{:x}", md5::compute(user.email.clone()));
               let data = json!({
