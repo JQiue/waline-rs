@@ -103,14 +103,6 @@ fn build_data_entry(comment: wl_comment::Model) -> DataEntry {
   }
 }
 
-async fn has_user(user_id: u32, conn: &DatabaseConnection) -> bool {
-  let res = WlUsers::find_by_id(user_id).one(conn).await.unwrap();
-  match res {
-    Some(_) => true,
-    None => false,
-  }
-}
-
 enum UserQueryBy {
   Id(u32),
   Email(String),
@@ -311,7 +303,7 @@ async fn create_comment(
   _query: Query<CreateCommentQuery>,
   body: Json<CreateCommentBody>,
 ) -> impl Responder {
-  let actix_web::web::Json(CreateCommentBody {
+  let Json(CreateCommentBody {
     comment,
     link,
     mail,
@@ -723,20 +715,65 @@ async fn update_comment(
   }
 }
 
+async fn is_first_user(conn: &DatabaseConnection) -> bool {
+  let users = WlUsers::find().all(conn).await.unwrap();
+  users.len() == 0
+}
+
+async fn has_user(query_by: UserQueryBy, conn: &DatabaseConnection) -> bool {
+  let mut query = WlUsers::find();
+  match query_by {
+    UserQueryBy::Id(id) => query = query.filter(wl_users::Column::Id.eq(id)),
+    UserQueryBy::Email(email) => query = query.filter(wl_users::Column::Email.eq(email)),
+  }
+  let res = query.one(conn).await.unwrap();
+  match res {
+    Some(_) => true,
+    None => false,
+  }
+}
+
 #[derive(Deserialize)]
 struct UserRegisterBody {
   display_name: String,
   email: String,
   password: String,
   url: String,
-  lang: String,
 }
 
 #[post("/api/user")]
-async fn user_register(data: Data<AppState>, _body: Json<UserRegisterBody>) -> impl Responder {
-  let _conn = &data.conn;
+async fn user_register(data: Data<AppState>, body: Json<UserRegisterBody>) -> impl Responder {
+  let conn = &data.conn;
+  let Json(UserRegisterBody {
+    display_name,
+    email,
+    password,
+    url,
+  }) = body;
+  if has_user(UserQueryBy::Email(email.clone()), conn).await {
+    return HttpResponse::Ok().json(json!({
+     "errmsg": "用户已存在".to_string(),
+     "errno": 1000,
+    }));
+  }
+  let hashed = bcrypt::hash(password, bcrypt::DEFAULT_COST).unwrap();
+  let mut model = wl_users::ActiveModel {
+    display_name: Set(display_name),
+    email: Set(email),
+    url: Set(Some(url)),
+    password: Set(hashed),
+    ..Default::default()
+  };
+  if is_first_user(conn).await {
+    model.r#type = Set("administrator".to_string());
+  } else {
+    model.r#type = Set("guest".to_string());
+  }
+  let _ = WlUsers::insert(model).exec(conn).await.unwrap();
   HttpResponse::Ok().json(json! ({
-    "data": "",
+    "data": {
+      "verify": true
+    },
     "errmsg": "".to_string(),
     "errno": 0,
   }))
@@ -954,7 +991,7 @@ struct SetUserProfileBody {
 #[put("/api/user")]
 async fn set_user_profile(
   _data: Data<AppState>,
-  _bodyy: Json<SetUserProfileBody>,
+  _body: Json<SetUserProfileBody>,
 ) -> impl Responder {
   HttpResponse::Ok().json(json! ({
     "errno": 0,
