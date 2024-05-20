@@ -15,7 +15,7 @@ use actix_web::{
 };
 use chrono::Utc;
 use pulldown_cmark::{self, Event};
-use sea_orm::{ColumnTrait, EntityTrait, Order, QueryFilter, QueryOrder, Set};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, Order, QueryFilter, QueryOrder, Set};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::env;
@@ -49,6 +49,7 @@ struct ResponseModel<T> {
 #[derive(Serialize, Debug)]
 struct DataEntry {
   status: String,
+  like: Option<i32>,
   link: Option<String>,
   mail: Option<String>,
   nick: Option<String>,
@@ -73,6 +74,7 @@ fn build_data_entry(comment: wl_comment::Model) -> DataEntry {
   let (browser, os) = ua::parse(comment.ua.as_ref().unwrap().to_string());
   DataEntry {
     status: comment.status,
+    like: comment.like,
     link: comment.link,
     mail: comment.mail.clone(),
     nick: comment.nick,
@@ -98,6 +100,41 @@ fn build_data_entry(comment: wl_comment::Model) -> DataEntry {
     level: 0,
     label: None,
     children: vec![],
+  }
+}
+
+async fn has_user(user_id: u32, conn: &DatabaseConnection) -> bool {
+  let res = WlUsers::find_by_id(user_id).one(conn).await.unwrap();
+  match res {
+    Some(_) => true,
+    None => false,
+  }
+}
+
+enum UserQueryBy {
+  Id(u32),
+  Email(String),
+}
+
+async fn get_user(query_by: UserQueryBy, conn: &DatabaseConnection) -> wl_users::Model {
+  let mut query = WlUsers::find();
+  match query_by {
+    UserQueryBy::Id(id) => query = query.filter(wl_users::Column::Id.eq(id)),
+    UserQueryBy::Email(email) => query = query.filter(wl_users::Column::Email.eq(email)),
+  }
+  query.one(conn).await.unwrap().unwrap()
+}
+
+async fn is_anonymous(comment_id: u32, conn: &DatabaseConnection) -> bool {
+  let res = WlComment::find_by_id(comment_id)
+    .filter(wl_comment::Column::UserId.is_not_null())
+    .filter(wl_comment::Column::UserId.ne(""))
+    .one(conn)
+    .await
+    .unwrap();
+  match res {
+    Some(_) => false,
+    None => true,
   }
 }
 
@@ -171,12 +208,7 @@ async fn get_comment(
     let mut parrent_data_entry = build_data_entry(parrent_comment.clone());
     match parrent_data_entry.user_id {
       Some(user_id) => {
-        let user = WlUsers::find()
-          .filter(wl_users::Column::Id.eq(user_id))
-          .one(conn)
-          .await
-          .unwrap()
-          .unwrap();
+        let user = get_user(UserQueryBy::Id(user_id as u32), conn).await;
         parrent_data_entry.label = user.label;
         parrent_data_entry.r#type = Some(user.r#type);
       }
@@ -195,12 +227,7 @@ async fn get_comment(
       let mut subcomment_data_entry = build_data_entry(subcomment.clone());
       match subcomment_data_entry.user_id {
         Some(user_id) => {
-          let user = WlUsers::find()
-            .filter(wl_users::Column::Id.eq(user_id))
-            .one(conn)
-            .await
-            .unwrap()
-            .unwrap();
+          let user = get_user(UserQueryBy::Id(user_id as u32), conn).await;
           subcomment_data_entry.label = user.label;
           subcomment_data_entry.r#type = Some(user.r#type);
         }
@@ -230,9 +257,6 @@ fn create_comment_model(
   url: String,
   pid: Option<i32>,
   rid: Option<i32>,
-  inserted_at: chrono::DateTime<Utc>,
-  created_at: chrono::DateTime<Utc>,
-  updated_at: chrono::DateTime<Utc>,
 ) -> wl_comment::ActiveModel {
   let created_at: chrono::DateTime<Utc> = Utc::now();
   wl_comment::ActiveModel {
@@ -246,9 +270,9 @@ fn create_comment_model(
     status: Set("approved".to_string()),
     pid: Set(pid),
     rid: Set(rid),
-    inserted_at: Set(Some(inserted_at)),
+    inserted_at: Set(Some(created_at)),
     created_at: Set(Some(created_at)),
-    updated_at: Set(Some(updated_at)),
+    updated_at: Set(Some(created_at)),
     ..Default::default()
   }
 }
@@ -307,12 +331,11 @@ async fn create_comment(
     .unwrap();
   let model;
   let html_output = render_markdown(&comment);
-  let created_at: chrono::DateTime<Utc> = Utc::now();
   match user {
     Some(user) => {
       model = create_comment_model(
         Some(user.id as i32),
-        html_output,
+        comment,
         link,
         mail.clone(),
         nick.clone(),
@@ -320,15 +343,12 @@ async fn create_comment(
         url,
         pid,
         rid,
-        created_at,
-        created_at,
-        created_at,
       );
     }
     None => {
       model = create_comment_model(
         None,
-        html_output,
+        comment,
         link,
         mail.clone(),
         nick.clone(),
@@ -336,9 +356,6 @@ async fn create_comment(
         url,
         pid,
         rid,
-        created_at,
-        created_at,
-        created_at,
       );
     }
   }
@@ -360,7 +377,7 @@ async fn create_comment(
           "addr":"",
           "avatar": ANONYMOUS_AVATAR,
           "browser": browser,
-          "comment": comment.comment,
+          "comment": html_output,
           "like": like,
           "link": comment.link,
           "nick": comment.nick,
@@ -390,7 +407,6 @@ async fn create_comment(
           .await
           .unwrap()
           .unwrap();
-        println!(">>>{:?}", user);
         let avatar = if let Some(prefix) = extract_email_prefix(mail.clone()) {
           format!("https://q1.qlogo.cn/g?b=qq&nk={}&s=100", prefix)
         } else {
@@ -400,7 +416,7 @@ async fn create_comment(
           "addr":"",
           "avatar": avatar,
           "browser": browser,
-          "comment": comment.comment,
+          "comment": html_output,
           "ip": comment.ip,
           "label": user.label,
           "mail": user.email,
@@ -469,7 +485,7 @@ async fn get_article(data: Data<AppState>, query: Query<GetArticleQuery>) -> imp
   })
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 struct ApiArticleBody {
   action: String,
   path: String,
@@ -490,7 +506,7 @@ async fn update_article(
   let conn = &data.conn;
 
   let one = &WlCounter::find()
-    .filter(wl_counter::Column::Url.contains(body.path.clone()))
+    .filter(wl_counter::Column::Url.eq(body.path.clone()))
     .all(conn)
     .await
     .unwrap()[0];
@@ -504,7 +520,7 @@ async fn update_article(
   WlCounter::update(model).exec(conn).await.unwrap();
 
   let data = WlCounter::find()
-    .filter(wl_counter::Column::Url.contains(body.path.clone()))
+    .filter(wl_counter::Column::Url.eq(body.path.clone()))
     .all(conn)
     .await
     .unwrap();
@@ -532,6 +548,7 @@ async fn delete_comment(data: Data<AppState>, path: Path<u32>) -> impl Responder
 #[derive(Deserialize)]
 struct UpdateCommentBody {
   status: Option<String>,
+  like: Option<bool>,
   comment: Option<String>,
   link: Option<String>,
   mail: Option<String>,
@@ -540,18 +557,138 @@ struct UpdateCommentBody {
   url: Option<String>,
 }
 
-/// 更新评论（未实现）
+/// update comment
 #[put("/api/comment/{id}")]
 async fn update_comment(
-  _data: Data<AppState>,
-  _path: Path<u32>,
-  _body: Json<UpdateCommentBody>,
+  data: Data<AppState>,
+  path: Path<u32>,
+  body: Json<UpdateCommentBody>,
 ) -> impl Responder {
-  HttpResponse::Ok().json(json! ({
-    "data": "",
-    "errmsg": "".to_string(),
-    "errno": 0,
-  }))
+  let conn = &data.conn;
+  let actix_web::web::Json(UpdateCommentBody {
+    status,
+    like,
+    comment,
+    link: _,
+    mail: _,
+    nick: _,
+    ua,
+    url: _,
+  }) = body;
+  let updated_at: chrono::DateTime<Utc> = Utc::now();
+  let id: u32 = path.into_inner();
+  let new_comment;
+  if let Some(like) = like {
+    let comment = wl_comment::Entity::find_by_id(id)
+      .one(conn)
+      .await
+      .unwrap()
+      .unwrap();
+    let model;
+    if like {
+      model = wl_comment::ActiveModel {
+        id: Set(id),
+        like: Set(Some(comment.like.unwrap_or(0) + 1)),
+        updated_at: Set(Some(updated_at)),
+        ..Default::default()
+      };
+    } else {
+      model = wl_comment::ActiveModel {
+        id: Set(id),
+        like: Set(Some(comment.like.unwrap_or(0) - 1)),
+        updated_at: Set(Some(updated_at)),
+        ..Default::default()
+      };
+    }
+    new_comment = WlComment::update(model).exec(conn).await.unwrap();
+  } else if let Some(status) = status {
+    let model = wl_comment::ActiveModel {
+      id: Set(id),
+      status: Set(status),
+      updated_at: Set(Some(updated_at)),
+      ..Default::default()
+    };
+    new_comment = WlComment::update(model).exec(conn).await.unwrap();
+  } else {
+    let model = wl_comment::ActiveModel {
+      id: Set(id),
+      comment: Set(comment),
+      ua: Set(ua),
+      ..Default::default()
+    };
+    new_comment = WlComment::update(model).exec(conn).await.unwrap();
+  }
+
+  let (browser, os) = ua::parse(new_comment.ua.unwrap());
+  let like = new_comment.like.unwrap_or(0);
+  let time = new_comment.created_at.unwrap().timestamp_millis();
+  let pid = new_comment.pid;
+  let rid = new_comment.rid;
+  let html_output = render_markdown(new_comment.comment.clone().unwrap().as_str());
+
+  if is_anonymous(id, conn).await {
+    let data = json!({
+      "addr":"",
+      "avatar": ANONYMOUS_AVATAR.to_string(),
+      "browser": browser,
+      "comment": html_output,
+      "ip": new_comment.ip,
+      "mail": new_comment.mail,
+      "user_id": new_comment.user_id,
+      "like": like,
+      "link": new_comment.link,
+      "nick": new_comment.nick,
+      "objectId": new_comment.id,
+      "orig": new_comment.comment,
+      "os": os,
+      "status": new_comment.status,
+      "time": time,
+      "url": new_comment.url,
+    });
+    HttpResponse::Ok().json(json! ({
+      "data": data,
+      "errmsg": "".to_string(),
+      "errno": 0,
+    }))
+  } else {
+    let user = get_user(UserQueryBy::Id(new_comment.user_id.unwrap() as u32), conn).await;
+    let avatar = if let Some(prefix) = extract_email_prefix(user.email.clone()) {
+      format!("https://q1.qlogo.cn/g?b=qq&nk={}&s=100", prefix)
+    } else {
+      ANONYMOUS_AVATAR.to_string()
+    };
+    let mut data = json!({
+      "addr":"",
+      "avatar": avatar,
+      "browser": browser,
+      "comment": html_output,
+      "ip": new_comment.ip,
+      "label": user.label,
+      "mail": user.email.clone(),
+      "type": user.r#type,
+      "user_id": new_comment.user_id,
+      "like": like,
+      "link": new_comment.link,
+      "nick": new_comment.nick,
+      "objectId": new_comment.id,
+      "orig": new_comment.comment,
+      "os": os,
+      "status": new_comment.status,
+      "time": time,
+      "url": new_comment.url,
+    });
+    if let Some(pid) = pid {
+      data["pid"] = json!(pid);
+    }
+    if let Some(rid) = rid {
+      data["rid"] = json!(rid);
+    };
+    HttpResponse::Ok().json(json! ({
+      "data": data,
+      "errmsg": "".to_string(),
+      "errno": 0,
+    }))
+  }
 }
 
 #[derive(Deserialize)]
