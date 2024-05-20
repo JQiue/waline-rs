@@ -8,7 +8,7 @@ use crate::{
 };
 use actix_web::{
   delete, get,
-  http::header::{ContentType, AUTHORIZATION},
+  http::header::{ContentType, HeaderValue, AUTHORIZATION},
   post, put,
   web::{resource, Data, Json, Path, Query, ServiceConfig},
   HttpRequest, HttpResponse, Responder,
@@ -88,8 +88,8 @@ fn build_data_entry(comment: wl_comment::Model) -> DataEntry {
     time: comment.created_at.unwrap().timestamp_millis(),
     pid: comment.pid,
     rid: comment.rid,
-    comment: Some(render_markdown(&comment.comment.as_ref().unwrap())),
-    avatar: if let Some(_) = comment.user_id {
+    comment: Some(render_markdown(comment.comment.as_ref().unwrap())),
+    avatar: if comment.user_id.is_some() {
       format!(
         "https://q1.qlogo.cn/g?b=qq&nk={}&s=100",
         extract_email_prefix(comment.mail.unwrap()).unwrap()
@@ -124,10 +124,7 @@ async fn is_anonymous(comment_id: u32, conn: &DatabaseConnection) -> bool {
     .one(conn)
     .await
     .unwrap();
-  match res {
-    Some(_) => false,
-    None => true,
-  }
+  res.is_none()
 }
 
 #[derive(Deserialize)]
@@ -198,13 +195,10 @@ async fn get_comment(
 
   for parrent_comment in parrent_comments {
     let mut parrent_data_entry = build_data_entry(parrent_comment.clone());
-    match parrent_data_entry.user_id {
-      Some(user_id) => {
-        let user = get_user(UserQueryBy::Id(user_id as u32), conn).await;
-        parrent_data_entry.label = user.label;
-        parrent_data_entry.r#type = Some(user.r#type);
-      }
-      None => {}
+    if let Some(user_id) = parrent_data_entry.user_id {
+      let user = get_user(UserQueryBy::Id(user_id as u32), conn).await;
+      parrent_data_entry.label = user.label;
+      parrent_data_entry.r#type = Some(user.r#type);
     }
     let subcomments = wl_comment::Entity::find()
       .filter(wl_comment::Column::Url.contains(query.path.clone()))
@@ -217,13 +211,10 @@ async fn get_comment(
     for subcomment in subcomments {
       count += 1;
       let mut subcomment_data_entry = build_data_entry(subcomment.clone());
-      match subcomment_data_entry.user_id {
-        Some(user_id) => {
-          let user = get_user(UserQueryBy::Id(user_id as u32), conn).await;
-          subcomment_data_entry.label = user.label;
-          subcomment_data_entry.r#type = Some(user.r#type);
-        }
-        None => {}
+      if let Some(user_id) = subcomment_data_entry.user_id {
+        let user = get_user(UserQueryBy::Id(user_id as u32), conn).await;
+        subcomment_data_entry.label = user.label;
+        subcomment_data_entry.r#type = Some(user.r#type);
       }
       parrent_data_entry.children.push(subcomment_data_entry)
     }
@@ -321,36 +312,31 @@ async fn create_comment(
     .one(conn)
     .await
     .unwrap();
-  let model;
   let html_output = render_markdown(&comment);
-  match user {
-    Some(user) => {
-      model = create_comment_model(
-        Some(user.id as i32),
-        comment,
-        link,
-        mail.clone(),
-        nick.clone(),
-        ua,
-        url,
-        pid,
-        rid,
-      );
-    }
-    None => {
-      model = create_comment_model(
-        None,
-        comment,
-        link,
-        mail.clone(),
-        nick.clone(),
-        ua,
-        url,
-        pid,
-        rid,
-      );
-    }
-  }
+  let model = match user {
+    Some(user) => create_comment_model(
+      Some(user.id as i32),
+      comment,
+      link,
+      mail.clone(),
+      nick.clone(),
+      ua,
+      url,
+      pid,
+      rid,
+    ),
+    None => create_comment_model(
+      None,
+      comment,
+      link,
+      mail.clone(),
+      nick.clone(),
+      ua,
+      url,
+      pid,
+      rid,
+    ),
+  };
 
   match WlComment::insert(model).exec(conn).await {
     Ok(result) => {
@@ -459,7 +445,7 @@ async fn get_article(data: Data<AppState>, query: Query<GetArticleQuery>) -> imp
     time: i32,
   }
   let mut data: Vec<DataEntry> = vec![];
-  for path in query.path.split(",") {
+  for path in query.path.split(',') {
     let model = WlCounter::find()
       .filter(wl_counter::Column::Url.eq(path))
       .one(conn)
@@ -498,10 +484,7 @@ async fn has_counter(url: String, conn: &DatabaseConnection) -> bool {
     .one(conn)
     .await
     .unwrap();
-  match res {
-    Some(_) => true,
-    None => false,
-  }
+  res.is_some()
 }
 
 #[post("/api/article")]
@@ -608,22 +591,21 @@ async fn update_comment(
       .await
       .unwrap()
       .unwrap();
-    let model;
-    if like {
-      model = wl_comment::ActiveModel {
+    let model = if like {
+      wl_comment::ActiveModel {
         id: Set(id),
         like: Set(Some(comment.like.unwrap_or(0) + 1)),
         updated_at: Set(Some(updated_at)),
         ..Default::default()
-      };
+      }
     } else {
-      model = wl_comment::ActiveModel {
+      wl_comment::ActiveModel {
         id: Set(id),
         like: Set(Some(comment.like.unwrap_or(0) - 1)),
         updated_at: Set(Some(updated_at)),
         ..Default::default()
-      };
-    }
+      }
+    };
     new_comment = WlComment::update(model).exec(conn).await.unwrap();
   } else if let Some(status) = status {
     let model = wl_comment::ActiveModel {
@@ -717,7 +699,7 @@ async fn update_comment(
 
 async fn is_first_user(conn: &DatabaseConnection) -> bool {
   let users = WlUsers::find().all(conn).await.unwrap();
-  users.len() == 0
+  users.is_empty()
 }
 
 async fn has_user(query_by: UserQueryBy, conn: &DatabaseConnection) -> bool {
@@ -727,10 +709,7 @@ async fn has_user(query_by: UserQueryBy, conn: &DatabaseConnection) -> bool {
     UserQueryBy::Email(email) => query = query.filter(wl_users::Column::Email.eq(email)),
   }
   let res = query.one(conn).await.unwrap();
-  match res {
-    Some(_) => true,
-    None => false,
-  }
+  res.is_some()
 }
 
 #[derive(Deserialize)]
@@ -898,15 +877,33 @@ async fn user_login(data: Data<AppState>, body: Json<ApiTokenBody>) -> impl Resp
   }
 }
 
+fn extract_token_from_header(header_value: &Option<&HeaderValue>) -> Option<String> {
+  header_value.and_then(|value| {
+    let value = value.to_str().ok()?;
+    if value.starts_with("Bearer ") {
+      Some(value.split(' ').nth(1)?.to_string())
+    } else {
+      None
+    }
+  })
+}
+
 /// 获取登录用户信息
 #[get("/api/token")]
 async fn get_login_user_info(req: HttpRequest, data: Data<AppState>) -> impl Responder {
+  if let Some(token) = extract_token_from_header(&req.headers().get(AUTHORIZATION)) {
+    println!(">>> token = {}", token)
+    // 使用 token 进行后续的处理
+  } else {
+    // 如果 token 提取失败,则返回适当的错误响应
+  }
+
   let header_value = req.headers().get(AUTHORIZATION);
   match header_value {
     Some(value) => {
       let mut value = value.to_str().unwrap();
       if value.starts_with("Bearer ") {
-        value = value.split(" ").collect::<Vec<&str>>()[1];
+        value = value.split(' ').collect::<Vec<&str>>()[1];
       }
       let res = token::verify(value.to_string(), "waline".to_string());
       match res {
@@ -943,26 +940,22 @@ async fn get_login_user_info(req: HttpRequest, data: Data<AppState>) -> impl Res
                 "objectId": user.id,
                 "mailMd5": mailMd5,
               });
-              return HttpResponse::Ok().json(json! ({
+              HttpResponse::Ok().json(json! ({
                 "errno": 0,
                 "errmsg": "",
                 "data": data,
-              }));
+              }))
             }
-            None => {
-              return HttpResponse::Ok().json(json! ({
-                "errno": 1000,
-                "errmsg": "no this user",
-              }));
-            }
+            None => HttpResponse::Ok().json(json! ({
+              "errno": 1000,
+              "errmsg": "no this user",
+            })),
           }
         }
-        Err(err) => {
-          return HttpResponse::Ok().json(json! ({
-            "errno": 1000,
-            "errmsg": err,
-          }));
-        }
+        Err(err) => HttpResponse::Ok().json(json! ({
+          "errno": 1000,
+          "errmsg": err,
+        })),
       }
     }
     None => HttpResponse::Ok().json(json! ({
@@ -987,12 +980,24 @@ struct SetUserProfileBody {
   password: Option<String>,
 }
 
-/// 更新用户档案（未实现）
+/// set user profile
 #[put("/api/user")]
-async fn set_user_profile(
-  _data: Data<AppState>,
-  _body: Json<SetUserProfileBody>,
-) -> impl Responder {
+async fn set_user_profile(data: Data<AppState>, body: Json<SetUserProfileBody>) -> impl Responder {
+  let conn = &data.conn;
+  let Json(SetUserProfileBody {
+    display_name,
+    label,
+    url,
+    password: _,
+  }) = body;
+  // token::verify(value.to_string(), "waline".to_string());
+  let model = wl_users::ActiveModel {
+    display_name: Set(display_name.unwrap_or("".to_string())),
+    label: Set(label),
+    url: Set(url),
+    ..Default::default()
+  };
+  let _ = WlUsers::update(model).exec(conn).await.unwrap();
   HttpResponse::Ok().json(json! ({
     "errno": 0,
     "errmsg": "",
