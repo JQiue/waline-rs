@@ -12,6 +12,7 @@ dotenvy = "0.15.7"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 sea-orm = { version = "0.12", features = [
+  "sqlx-sqlite",
   "sqlx-mysql",
   "runtime-tokio-rustls",
   "macros",

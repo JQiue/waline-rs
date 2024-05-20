@@ -472,11 +472,14 @@ async fn get_article(data: Data<AppState>, query: Query<GetArticleQuery>) -> imp
       .filter(wl_counter::Column::Url.eq(path))
       .one(conn)
       .await
-      .unwrap()
       .unwrap();
-    data.push(DataEntry {
-      time: model.time.unwrap(),
-    });
+    if let Some(model) = model {
+      data.push(DataEntry {
+        time: model.time.unwrap(),
+      });
+    } else {
+      data.push(DataEntry { time: 0 })
+    }
   }
   HttpResponse::Ok().json(ResponseModel {
     data,
@@ -497,6 +500,18 @@ struct ApiArticleQuery {
   lang: String,
 }
 
+async fn has_counter(url: String, conn: &DatabaseConnection) -> bool {
+  let res = WlCounter::find()
+    .filter(wl_counter::Column::Url.eq(url))
+    .one(conn)
+    .await
+    .unwrap();
+  match res {
+    Some(_) => true,
+    None => false,
+  }
+}
+
 #[post("/api/article")]
 async fn update_article(
   data: Data<AppState>,
@@ -504,26 +519,43 @@ async fn update_article(
   body: Json<ApiArticleBody>,
 ) -> impl Responder {
   let conn = &data.conn;
+  let Json(ApiArticleBody {
+    action: _,
+    path,
+    r#type: _,
+  }) = body;
 
-  let one = &WlCounter::find()
-    .filter(wl_counter::Column::Url.eq(body.path.clone()))
-    .all(conn)
-    .await
-    .unwrap()[0];
+  let mut data: Vec<wl_counter::Model> = vec![];
 
-  let model = wl_counter::ActiveModel {
-    id: Set(one.id),
-    time: Set(Some(one.time.unwrap() + 1)),
-    ..Default::default()
-  };
-
-  WlCounter::update(model).exec(conn).await.unwrap();
-
-  let data = WlCounter::find()
-    .filter(wl_counter::Column::Url.eq(body.path.clone()))
-    .all(conn)
-    .await
-    .unwrap();
+  if has_counter(path.clone(), conn).await {
+    let model = WlCounter::find()
+      .filter(wl_counter::Column::Url.eq(path.clone()))
+      .one(conn)
+      .await
+      .unwrap()
+      .unwrap();
+    let model = wl_counter::ActiveModel {
+      id: Set(model.id),
+      time: Set(Some(model.time.unwrap() + 1)),
+      ..Default::default()
+    };
+    data.push(WlCounter::update(model).exec(conn).await.unwrap());
+  } else {
+    let model = wl_counter::ActiveModel {
+      url: Set(path.clone()),
+      time: Set(Some(1)),
+      ..Default::default()
+    };
+    WlCounter::insert(model).exec(conn).await.unwrap();
+    data.push(
+      WlCounter::find()
+        .filter(wl_counter::Column::Url.eq(path.clone()))
+        .one(conn)
+        .await
+        .unwrap()
+        .unwrap(),
+    )
+  }
 
   HttpResponse::Ok().json(ResponseModel {
     data,
