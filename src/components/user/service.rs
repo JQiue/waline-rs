@@ -18,7 +18,7 @@ pub async fn user_register(
   url: String,
 ) -> Result<Value, String> {
   if has_user(UserQueryBy::Email(email.clone()), &state.conn).await {
-    return Err("用户已注册".to_string());
+    return Err(get_translation(&lang, "USER_REGISTERED"));
   }
   let hashed = bcrypt::hash(password, bcrypt::DEFAULT_COST).unwrap();
   let mut model = wl_users::ActiveModel {

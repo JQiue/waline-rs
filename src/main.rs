@@ -12,6 +12,7 @@ mod components;
 mod config;
 mod entities;
 mod helpers;
+mod locales;
 
 #[derive(Debug, Clone)]
 struct AppState {
