@@ -1,45 +1,50 @@
+use std::sync::Arc;
+
 use actix_cors::Cors;
-use actix_web::{middleware, web, App, HttpServer};
+use actix_web::{middleware, web, App, Error, HttpServer};
+use app::config_app;
+use config::Config;
 use sea_orm::{Database, DatabaseConnection};
-use services::config;
-use std::env;
 use tracing::info;
 
+mod app;
+mod components;
+mod config;
 mod entities;
 mod helpers;
-mod services;
 
 #[derive(Debug, Clone)]
 struct AppState {
   conn: DatabaseConnection,
+  anonymous_avatar: Arc<String>,
 }
 
 #[actix_web::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<(), Error> {
   std::env::set_var("RUST_LOG", "info");
+
+  let app_config = Config::from_env();
 
   tracing_subscriber::fmt::init();
 
-  dotenvy::dotenv_override().ok();
-  let workers = env::var("WORKERS")
-    .unwrap_or("1".to_string())
-    .parse()
-    .unwrap();
-  let db_url = env::var("DATABASE_URL").expect("DATABASE_URL is not set in .env file");
-  let host = env::var("HOST").expect("HOST is not set in .env file");
-  let port = env::var("PORT").expect("PORT is not set in .env file");
-  let server_url = format!("{host}:{port}");
-
-  let conn = Database::connect(&db_url).await.unwrap();
+  let conn = Database::connect(app_config.database_url).await.unwrap();
 
   match conn.ping().await {
     Ok(_) => info!("Database is ok!"),
     Err(error) => panic!("{error}"),
   }
 
-  info!("Server running at http://{server_url}");
+  info!(
+    "Server running at http://{}:{}",
+    app_config.host, app_config.port
+  );
 
-  let state = AppState { conn };
+  let state = AppState {
+    conn,
+    anonymous_avatar: "https://seccdn.libravatar.org/avatar/d41d8cd98f00b204e9800998ecf8427e"
+      .to_string()
+      .into(),
+  };
 
   let _ = HttpServer::new(move || {
     let cors = Cors::permissive();
@@ -47,10 +52,10 @@ async fn main() -> anyhow::Result<()> {
       .app_data(web::Data::new(state.clone()))
       .wrap(cors)
       .wrap(middleware::Logger::default())
-      .configure(config)
+      .configure(config_app)
   })
-  .bind(server_url)?
-  .workers(workers)
+  .bind((app_config.host, app_config.port))?
+  .workers(app_config.workers)
   .run()
   .await;
   Ok(())
