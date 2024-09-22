@@ -1,6 +1,7 @@
 use pulldown_cmark::{self, Event};
 
-pub fn render_markdown(markdown: &str) -> String {
+/// Render markdown to html
+pub fn render_md_to_html(markdown: &str) -> String {
   let parser = pulldown_cmark::Parser::new(markdown);
   let parser = parser.map(|event| match event {
     Event::SoftBreak => Event::HardBreak,

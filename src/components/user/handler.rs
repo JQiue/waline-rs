@@ -40,8 +40,8 @@ pub async fn user_register(
 }
 
 #[post("/token")]
-pub async fn user_login(state: Data<AppState>, body: Json<ApiTokenBody>) -> HttpResponse {
-  let Json(ApiTokenBody {
+pub async fn user_login(state: Data<AppState>, body: Json<UserLoginBody>) -> HttpResponse {
+  let Json(UserLoginBody {
     code,
     email,
     password,
@@ -125,7 +125,7 @@ pub async fn set_user_profile(
   }
 }
 
-/// 设置用户类型（未实现）
+/// 设置用户类型（todo）
 #[put("/token/{user_id}")]
 pub async fn set_user_type(
   state: Data<AppState>,
@@ -146,23 +146,44 @@ pub async fn set_user_type(
   }
 }
 
-/// 获取用户信息（未实现）
+/// 获取用户信息
 #[get("/user")]
-pub async fn get_user_list(state: Data<AppState>, query: Query<GetUserQuery>) -> HttpResponse {
-  let Query(GetUserQuery { email, lang }) = query;
-  match service::get_user_list(&state, email, lang).await {
-    Ok(_) => HttpResponse::Ok().json(json!({
-      "errmsg": "未实现",
-      "errno": 1000
-    })),
-    Err(_) => HttpResponse::Ok().json(json!({
-      "errmsg": "未实现",
-      "errno": 1000
-    })),
+pub async fn get_user_info(state: Data<AppState>, query: Query<GetUserQuery>) -> HttpResponse {
+  let Query(GetUserQuery { email, lang, page }) = query;
+  if page.is_some() {
+    match service::get_user_list(&state, page).await {
+      Ok(data) => HttpResponse::Ok().json(json!({
+        "data": {
+          "data": data,
+          "page": 1,
+          "pageSize": 10,
+          "totalPages": 1
+        },
+        "errmsg": "",
+        "errno": 0
+      })),
+      Err(err) => HttpResponse::Ok().json(json!({
+        "errmsg": err,
+        "errno": 1000
+      })),
+    }
+  } else {
+    match service::get_user(&state, lang, email).await {
+      Ok(data) => HttpResponse::Ok().json(json!({
+        "data": data,
+        "errmsg": "",
+        "errno": 0
+      })),
+      Err(err) => HttpResponse::Ok().json(json!({
+        "data": "",
+        "errmsg": err,
+        "errno": 0
+      })),
+    }
   }
 }
 
-/// 未实现
+/// todo
 #[post("/verification")]
 pub async fn verification(state: Data<AppState>, query: Query<VerificationQuery>) -> HttpResponse {
   let Query(VerificationQuery { email, token }) = query;
@@ -179,18 +200,18 @@ pub async fn verification(state: Data<AppState>, query: Query<VerificationQuery>
   }
 }
 
-/// 设置 2fa（未实现）
+/// 设置 2fa（todo）
 #[post("/token/2fa")]
 pub async fn set_2fa(state: Data<AppState>, body: Json<Set2faBody>) -> HttpResponse {
   let Json(Set2faBody { code, secret }) = body;
   match service::set_2fa(&state, code, secret).await {
     Ok(_) => HttpResponse::Ok().json(json!({
       "errno": 1000,
-      "errmsg": "二部验证失败"
+      "errmsg": "二步验证失败"
     })),
     Err(_) => HttpResponse::Ok().json(json!({
       "errno": 1000,
-      "errmsg": "二部验证失败"
+      "errmsg": "二步验证失败"
     })),
   }
 }

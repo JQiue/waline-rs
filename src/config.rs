@@ -1,3 +1,5 @@
+//! config
+
 use envy::from_env;
 use serde::Deserialize;
 

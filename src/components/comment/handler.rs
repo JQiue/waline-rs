@@ -20,8 +20,8 @@ async fn get_comment(
   let Query(GetCommentQuery {
     lang: _,
     path,
-    page_size: _,
-    page: _,
+    page_size,
+    page,
     sort_by: _,
     r#type: _,
     owner,
@@ -29,15 +29,15 @@ async fn get_comment(
     keyword: _,
   }) = query;
 
-  match service::get_comment(&state, path, owner).await {
+  match service::get_comment(&state, path, owner, page, page_size).await {
     Ok(data) => HttpResponse::Ok().json(json!({
       "errno": 0,
-      "errmsg": "".to_string(),
+      "errmsg": "",
       "data": data
     })),
     Err(_) => HttpResponse::Ok().json(json!({
       "errno": 1000,
-      "errmsg": "".to_string(),
+      "errmsg": "",
     })),
   }
 }
@@ -47,9 +47,10 @@ async fn get_comment(
 #[post("/comment")]
 async fn create_comment(
   state: Data<AppState>,
-  _query: Query<CreateCommentQuery>,
+  query: Query<CreateCommentQuery>,
   body: Json<CreateCommentBody>,
 ) -> HttpResponse {
+  let Query(CreateCommentQuery { lang: _ }) = query;
   let Json(CreateCommentBody {
     comment,
     link,
@@ -64,12 +65,12 @@ async fn create_comment(
   match service::create_comment(&state, comment, link, mail, nick, ua, url, pid, rid, at).await {
     Ok(data) => HttpResponse::Ok().json(json!({
       "errno": 0,
-      "errmsg": "".to_string(),
+      "errmsg": "",
       "data": data
     })),
     Err(_) => HttpResponse::Ok().json(json!({
       "errno": 1000,
-      "errmsg": "".to_string(),
+      "errmsg": "",
     })),
   }
 }
@@ -81,11 +82,11 @@ pub async fn delete_comment(state: Data<AppState>, path: Path<u32>) -> HttpRespo
   match service::delete_comment(&state, id).await {
     Ok(_) => HttpResponse::Ok().json(json!({
       "errno": 0,
-      "errmsg": "".to_string(),
+      "errmsg": "",
     })),
     Err(_) => HttpResponse::Ok().json(json!({
       "errno": 1000,
-      "errmsg": "".to_string(),
+      "errmsg": "",
     })),
   }
 }
@@ -113,11 +114,11 @@ async fn update_comment(
     Ok(data) => HttpResponse::Ok().json(json!({
       "data": data,
       "errno": 0,
-      "errmsg": "".to_string(),
+      "errmsg": "",
     })),
     Err(_) => HttpResponse::Ok().json(json!({
       "errno": 1000,
-      "errmsg": "".to_string(),
+      "errmsg": "",
     })),
   }
 }

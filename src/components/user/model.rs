@@ -16,7 +16,7 @@ pub struct UserRegisterBody {
 }
 
 #[derive(Deserialize)]
-pub struct ApiTokenBody {
+pub struct UserLoginBody {
   pub code: String,
   pub email: String,
   pub password: String,
@@ -34,6 +34,7 @@ pub struct SetUserProfileBody {
 pub struct GetUserQuery {
   pub email: Option<String>,
   pub lang: Option<String>,
+  pub page: Option<u32>,
 }
 
 #[derive(Deserialize)]
@@ -77,9 +78,4 @@ pub async fn has_user(query_by: UserQueryBy, conn: &DatabaseConnection) -> bool 
 #[derive(Deserialize)]
 pub struct SetUserTypeBody {
   pub r#type: String,
-}
-
-pub fn extract_email_prefix(email: String) -> Option<String> {
-  let mut res = email.split('@');
-  res.next().map(|prefix| prefix.to_string())
 }

@@ -1,11 +1,11 @@
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, Set};
+use sea_orm::{ColumnTrait, EntityTrait, Iterable, QueryFilter, QuerySelect, Set};
 use serde_json::{json, Value};
 
 use crate::{
-  components::user::model::{extract_email_prefix, has_user, is_first_user, UserQueryBy},
+  components::user::model::{has_user, is_first_user, UserQueryBy},
   entities::{prelude::*, *},
-  helpers::token,
-  locales::get_translation,
+  helpers::{email::extract_email_prefix, token},
+  locales::{self, get_translation},
   AppState,
 };
 
@@ -116,7 +116,7 @@ pub async fn get_login_user_info(state: &AppState, token: String) -> Result<Valu
             state.anonymous_avatar.to_string()
           };
           let mail_md5 = format!("{:x}", md5::compute(user.email.clone()));
-          return Ok(json! ({
+          Ok(json! ({
               "display_name": user.display_name,
               "email": user.email,
               "type": user.r#type,
@@ -132,9 +132,9 @@ pub async fn get_login_user_info(state: &AppState, token: String) -> Result<Valu
               "2fa": user.two_factor_auth,
               "objectId": user.id,
               "mailMd5": mail_md5,
-          }));
+          }))
         }
-        None => return Err("no this user".to_string()),
+        None => Err("no this user".to_string()),
       }
     }
     Err(err) => Err(err),
@@ -161,21 +161,49 @@ pub async fn set_user_profile(
   }
 }
 
-/// 设置用户类型（未实现）
+/// 设置用户类型（todo）
 pub async fn set_user_type(state: &AppState, user_id: i32, r#type: String) -> Result<bool, String> {
-  Err("未实现".to_string())
+  Err("todo".to_string())
 }
 
-/// 获取用户信息（未实现）
-pub async fn get_user_list(
+/// 获取用户信息列表
+pub async fn get_user_list(state: &AppState, _page: Option<u32>) -> Result<Vec<Value>, String> {
+  let users = WlUsers::find()
+    .select_only()
+    .columns(wl_users::Column::iter().filter(|col| !matches!(col, wl_users::Column::Id)))
+    .column_as(wl_users::Column::Id, "objectId")
+    .into_json()
+    .all(&state.conn)
+    .await
+    .unwrap();
+  Ok(users)
+}
+
+pub async fn get_user(
   state: &AppState,
-  email: Option<String>,
   lang: Option<String>,
-) -> Result<bool, String> {
-  Err("未实现".to_string())
+  email: Option<String>,
+) -> Result<Value, String> {
+  if let Some(user) = WlUsers::find()
+    .filter(wl_users::Column::Email.eq(email))
+    .select_only()
+    .columns(wl_users::Column::iter().filter(|col| !matches!(col, wl_users::Column::Id)))
+    .column_as(wl_users::Column::Id, "objectId")
+    .into_json()
+    .one(&state.conn)
+    .await
+    .unwrap()
+  {
+    Ok(user)
+  } else {
+    Err(locales::get_translation(
+      &lang.unwrap_or("en".to_owned()),
+      "USER_NOT_EXIST",
+    ))
+  }
 }
 
-/// 未实现
+/// todo
 pub async fn verification(state: &AppState, email: String, token: String) -> Result<bool, String> {
   let user = WlUsers::find()
     .filter(wl_users::Column::Email.eq(email))
@@ -185,16 +213,16 @@ pub async fn verification(state: &AppState, email: String, token: String) -> Res
 
   if let Some(_) = user {
     // 用户已注册
-    Err("未实现".to_string())
+    Err("todo".to_string())
   } else {
     // 用户未注册
-    Err("未实现".to_string())
+    Err("todo".to_string())
   }
 }
 
-/// 设置 2fa（未实现）
-pub async fn set_2fa(state: &AppState, _code: String, secret: String) -> Result<bool, String> {
-  Err("未实现".to_string())
+/// 设置 2fa（todo）
+pub async fn set_2fa(_state: &AppState, _code: String, _secret: String) -> Result<bool, String> {
+  Err("todo".to_string())
 }
 
 pub async fn get_2fa(

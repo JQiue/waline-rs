@@ -16,11 +16,11 @@ async fn get_article(data: Data<AppState>, query: Query<GetArticleQuery>) -> Htt
   match service::get_article(&data, path, r#type, lang).await {
     Ok(data) => HttpResponse::Ok().json(json!({
       "data": data,
-      "errmsg": "".to_string(),
+      "errmsg": "",
       "errno": 0
     })),
     Err(_) => HttpResponse::Ok().json(json!({
-      "errmsg": "".to_string(),
+      "errmsg": "",
       "errno": 1000
     })),
   }
@@ -29,24 +29,24 @@ async fn get_article(data: Data<AppState>, query: Query<GetArticleQuery>) -> Htt
 #[post("/article")]
 async fn update_article(
   data: Data<AppState>,
-  query: Query<ApiArticleQuery>,
-  body: Json<ApiArticleBody>,
+  query: Query<UpdateArticleQuery>,
+  body: Json<UpdateArticleBody>,
 ) -> HttpResponse {
-  let Json(ApiArticleBody {
+  let Json(UpdateArticleBody {
     action,
     path,
     r#type,
   }) = body;
-  let Query(ApiArticleQuery { lang }) = query;
+  let Query(UpdateArticleQuery { lang }) = query;
 
   match service::update_article(&data, action, path, r#type, lang).await {
     Ok(data) => HttpResponse::Ok().json(json!({
       "data": data,
-      "errmsg": "".to_string(),
+      "errmsg": "",
       "errno": 0
     })),
     Err(_) => HttpResponse::Ok().json(json!({
-      "errmsg": "".to_string(),
+      "errmsg": "",
       "errno": 1000
     })),
   }

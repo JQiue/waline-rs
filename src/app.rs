@@ -1,3 +1,5 @@
+//! app
+
 use crate::components::{
   article::ArticleComponent, comment::CommentComponent, db::DBComponent, ui::UIComponent,
   user::UserComponent,

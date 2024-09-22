@@ -11,14 +11,14 @@ pub struct GetArticleQuery {
 }
 
 #[derive(Deserialize)]
-pub struct ApiArticleBody {
+pub struct UpdateArticleBody {
   pub action: Option<String>,
   pub path: String,
   pub r#type: String,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ApiArticleQuery {
+pub struct UpdateArticleQuery {
   pub lang: String,
 }
 

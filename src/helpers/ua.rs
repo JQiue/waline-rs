@@ -1,4 +1,5 @@
 use woothee::parser::Parser;
+
 pub fn parse(ua: String) -> (String, String) {
   let parser = Parser::new();
   match parser.parse(&ua) {

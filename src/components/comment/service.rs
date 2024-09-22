@@ -1,11 +1,12 @@
-use chrono::Utc;
 use sea_orm::{ColumnTrait, EntityTrait, Order, QueryFilter, QueryOrder, Set};
 use serde_json::{json, Value};
 
 use crate::{
   components::comment::model::*,
   entities::{prelude::*, *},
-  helpers::{markdown::render_markdown, ua},
+  helpers::{
+    email::extract_email_prefix, markdown::render_md_to_html, time::get_current_utc_time, ua,
+  },
   AppState,
 };
 
@@ -13,6 +14,8 @@ pub async fn get_comment(
   state: &AppState,
   path: String,
   owner: Option<String>,
+  page: i32,
+  page_size: i32,
 ) -> Result<Value, String> {
   match owner.clone() {
     Some(owner) => {
@@ -31,8 +34,8 @@ pub async fn get_comment(
 
       return Ok(json!({
         "data": data,
-        "page": 1,
-        "pageSize": 10,
+        "page": page,
+        "pageSize": page_size,
         "spamCount": 0,
         "totalPages": 5,
         "waitingCount": 0,
@@ -109,7 +112,7 @@ pub async fn create_comment(
     .one(&state.conn)
     .await
     .unwrap();
-  let html_output = render_markdown(&comment);
+  let html_output = render_md_to_html(&comment);
   let model = match user {
     Some(user) => create_comment_model(
       Some(user.id as i32),
@@ -229,7 +232,7 @@ pub async fn update_comment(
   ua: Option<String>,
   _url: Option<String>,
 ) -> Result<Value, String> {
-  let updated_at: chrono::DateTime<Utc> = Utc::now();
+  let updated_at = get_current_utc_time();
   let new_comment;
   if let Some(like) = like {
     let comment = wl_comment::Entity::find_by_id(id)
@@ -276,7 +279,7 @@ pub async fn update_comment(
   let time = new_comment.created_at.unwrap().timestamp_millis();
   let pid = new_comment.pid;
   let rid = new_comment.rid;
-  let html_output = render_markdown(new_comment.comment.clone().unwrap().as_str());
+  let html_output = render_md_to_html(new_comment.comment.clone().unwrap().as_str());
 
   if is_anonymous(id, &state.conn).await {
     let data = json!({

@@ -1,5 +1,5 @@
 mod handler;
-mod model;
+pub mod model;
 mod service;
 
 use actix_web::web::ServiceConfig;
@@ -17,6 +17,6 @@ impl UserComponent {
     cfg.service(handler::set_2fa);
     cfg.service(handler::get_2fa);
     cfg.service(handler::verification);
-    cfg.service(handler::get_user_list);
+    cfg.service(handler::get_user_info);
   }
 }

@@ -1,3 +1,5 @@
+//! locales
+
 use std::collections::HashMap;
 
 type TranslationMap = HashMap<&'static str, &'static str>;
@@ -38,12 +40,13 @@ fn en() -> TranslationMap {
   m
 }
 
+/// Gets the corresponding text translation according to lang (Default in English)
 pub fn get_translation(lang: &str, key: &str) -> String {
   let translations = match lang {
     "zh" | "zh-cn" | "zh-CN" => zh_cn(),
     "zh-tw" | "zh-TW" => zh_tw(),
     "en" | "en-us" | "en-US" => en(),
-    _ => en(), // 默认使用英语
+    _ => en(),
   };
 
   translations.get(key).copied().unwrap_or(key).to_string()

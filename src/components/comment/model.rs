@@ -1,16 +1,12 @@
-use chrono::Utc;
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 use serde::{Deserialize, Serialize};
 
 use crate::{
   entities::{prelude::*, *},
-  helpers::{markdown::render_markdown, ua},
+  helpers::{
+    email::extract_email_prefix, markdown::render_md_to_html, time::get_current_utc_time, ua,
+  },
 };
-
-pub fn extract_email_prefix(email: String) -> Option<String> {
-  let mut res = email.split('@');
-  res.next().map(|prefix| prefix.to_string())
-}
 
 pub async fn get_user(query_by: UserQueryBy, conn: &DatabaseConnection) -> wl_users::Model {
   let mut query = WlUsers::find();
@@ -74,7 +70,7 @@ pub fn build_data_entry(comment: wl_comment::Model, anonymous_avatar: String) ->
     time: comment.created_at.unwrap().timestamp_millis(),
     pid: comment.pid,
     rid: comment.rid,
-    comment: Some(render_markdown(comment.comment.as_ref().unwrap())),
+    comment: Some(render_md_to_html(comment.comment.as_ref().unwrap())),
     avatar: if comment.user_id.is_some() {
       format!(
         "https://q1.qlogo.cn/g?b=qq&nk={}&s=100",
@@ -120,7 +116,7 @@ pub fn create_comment_model(
   pid: Option<i32>,
   rid: Option<i32>,
 ) -> wl_comment::ActiveModel {
-  let created_at: chrono::DateTime<Utc> = Utc::now();
+  let utc_time = get_current_utc_time();
   wl_comment::ActiveModel {
     user_id: Set(user_id),
     comment: Set(Some(comment)),
@@ -132,9 +128,9 @@ pub fn create_comment_model(
     status: Set("approved".to_string()),
     pid: Set(pid),
     rid: Set(rid),
-    inserted_at: Set(Some(created_at)),
-    created_at: Set(Some(created_at)),
-    updated_at: Set(Some(created_at)),
+    inserted_at: Set(Some(utc_time)),
+    created_at: Set(Some(utc_time)),
+    updated_at: Set(Some(utc_time)),
     ..Default::default()
   }
 }
