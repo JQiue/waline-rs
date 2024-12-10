@@ -12,6 +12,10 @@ All notable changes to this project will be documented in this file.
 
 - Simplify create_comment_data error handling
 
+### ⚙️ Miscellaneous Tasks
+
+- Supplement metedata and add the CHANGELOG.md generation tool
+
 ## [0.2.0] - 2024-09-22
 
 ### 🚀 Features
