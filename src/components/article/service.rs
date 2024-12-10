@@ -1,4 +1,4 @@
-use sea_orm::{ActiveModelTrait, IntoActiveModel, Set};
+use sea_orm::{ActiveModelTrait, IntoActiveModel};
 use serde_json::{json, Value};
 
 use crate::error::AppError;
@@ -14,8 +14,12 @@ pub async fn get_article(
   let mut data = vec![];
   if r#type == "time" {
     for path in path.split(',') {
-      let counter = get_counter(CounterQueryBy::Url(path.to_owned()), &state.conn).await?;
-      data.push(json!({"time": counter.time.unwrap_or(0)}));
+      if has_counter(CounterQueryBy::Url(path.to_owned()), &state.conn).await? {
+        let counter = get_counter(CounterQueryBy::Url(path.to_owned()), &state.conn).await?;
+        data.push(json!({"time": counter.time}));
+      } else {
+        data.push(json!({"time": 0}));
+      }
     }
   } else {
     let model = get_counter(CounterQueryBy::Url(path), &state.conn).await?;
@@ -36,22 +40,16 @@ pub async fn update_article(
   action: Option<String>,
   path: String,
   r#type: String,
-  _lang: String,
 ) -> Result<Vec<wl_counter::Model>, StatusCode> {
   let mut data = vec![];
   if r#type == "time" {
-    let mut active_counter = get_counter(CounterQueryBy::Url(path), &state.conn)
-      .await?
-      .into_active_model();
-    active_counter.time = Set(Some(
-      active_counter.time.take().unwrap_or(Some(0)).unwrap_or(0) + 1,
-    ));
-    data.push(
-      active_counter
-        .update(&state.conn)
-        .await
-        .map_err(AppError::from)?,
-    );
+    let counter;
+    if has_counter(CounterQueryBy::Url(path.to_owned()), &state.conn).await? {
+      counter = get_counter(CounterQueryBy::Url(path.to_owned()), &state.conn).await?;
+    } else {
+      counter = create_counter(path, &state.conn).await?;
+    }
+    data.push(counter);
   } else {
     fn set_reaction_value(
       mut counter: wl_counter::Model,

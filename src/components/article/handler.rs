@@ -31,9 +31,8 @@ async fn update_article(
     r#type,
   }) = body;
   let Query(UpdateArticleQuery { lang }) = query;
-
-  match service::update_article(&data, action, path, r#type, lang).await {
-    Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), None)),
-    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),
+  match service::update_article(&data, action, path, r#type).await {
+    Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(lang))),
+    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(lang))),
   }
 }

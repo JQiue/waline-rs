@@ -38,6 +38,7 @@ async fn get_comment_info(
 /// No user is created if the user is anonymous
 #[post("/comment")]
 async fn create_comment(
+  _req: HttpRequest,
   state: Data<AppState>,
   query: Query<CreateCommentQuery>,
   body: Json<CreateCommentBody>,

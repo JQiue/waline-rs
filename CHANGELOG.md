@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2024-12-10
+
+### 🚀 Features
+
+- Add sqlite driver
+
+### ⚙️ Miscellaneous Tasks
+
+- Release waline-mini version 0.4.0
+
 ## [0.3.0] - 2024-12-10
 
 ### 🚀 Features
@@ -15,6 +25,7 @@ All notable changes to this project will be documented in this file.
 ### ⚙️ Miscellaneous Tasks
 
 - Supplement metedata and add the CHANGELOG.md generation tool
+- Release waline-mini version 0.3.0
 
 ## [0.2.0] - 2024-09-22
 

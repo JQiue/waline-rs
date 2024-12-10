@@ -135,7 +135,7 @@ pub async fn create_comment(
 ) -> Result<Value, StatusCode> {
   // 逻辑是先验证 jwt，如果 jwt 正确，则直接插入，否则需要验证评论是否重复，不重复则插入
   let html_output = render_md_to_html(&comment);
-  let mut model = create_comment_model(
+  let mut new_comment = create_comment_model(
     None,
     comment,
     link,
@@ -148,9 +148,12 @@ pub async fn create_comment(
   );
   let user = get_user(UserQueryBy::Email(email.clone()), &state.conn).await;
   if let Ok(user) = user {
-    model.user_id = Set(Some(user.id as i32));
+    new_comment.user_id = Set(Some(user.id as i32));
   }
-  match wl_comment::Entity::insert(model).exec(&state.conn).await {
+  match wl_comment::Entity::insert(new_comment)
+    .exec(&state.conn)
+    .await
+  {
     Ok(result) => {
       let comment = get_comment(CommentQueryBy::Id(result.last_insert_id), &state.conn).await?;
       let (browser, os) = ua::parse(comment.ua.unwrap_or("".to_owned()));
