@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.1] - 2024-12-10
+
+### 🐛 Bug Fixes
+
+- Fixed an issue where counters could not be created
+
 ## [0.4.0] - 2024-12-10
 
 ### 🚀 Features
