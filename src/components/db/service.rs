@@ -61,7 +61,7 @@ pub async fn create_comment_data(
   create_at: Option<chrono::DateTime<Utc>>,
   updated_at: Option<chrono::DateTime<Utc>>,
   inserted_at: Option<chrono::DateTime<Utc>>,
-) -> Result<bool, String> {
+) -> Result<bool, StatusCode> {
   let model = wl_comment::ActiveModel {
     comment: Set(comment),
     inserted_at: Set(inserted_at),
@@ -76,13 +76,12 @@ pub async fn create_comment_data(
     updated_at: Set(updated_at),
     ..Default::default()
   };
-  match wl_comment::Entity::insert(model).exec(&state.conn).await {
-    Ok(res) => {
-      println!("{:?}", res);
-      Ok(true)
-    }
-    Err(err) => Err(err.to_string()),
-  }
+  Ok(
+    wl_comment::Entity::insert(model)
+      .exec(&state.conn)
+      .await
+      .is_ok(),
+  )
 }
 
 pub async fn create_counter_data(

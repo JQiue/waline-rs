@@ -8,6 +8,7 @@ use serde_json::json;
 use crate::{
   app::AppState,
   components::db::{model::*, service},
+  response::Response,
 };
 
 #[get("/db")]
@@ -32,7 +33,7 @@ pub async fn create_data(
   query: Query<CreateDataQuery>,
   body: Json<CreateDataBody>,
 ) -> HttpResponse {
-  let Query(CreateDataQuery { table, lang: _ }) = query;
+  let Query(CreateDataQuery { table, lang }) = query;
   let Json(CreateDataBody {
     comment,
     ip,
@@ -80,15 +81,8 @@ pub async fn create_data(
     )
     .await
     {
-      Ok(data) => HttpResponse::Ok().json(json!({
-        "data": data,
-        "errno": 0,
-        "errmsg": "",
-      })),
-      Err(_) => HttpResponse::Ok().json(json!({
-        "errno": 1000,
-        "errmsg": "",
-      })),
+      Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(lang))),
+      Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(lang))),
     },
     "Counter" => match service::create_counter_data(
       &state, time, url, reaction0, reaction1, reaction2, reaction3, reaction4, reaction5,
