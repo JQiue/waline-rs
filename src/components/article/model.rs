@@ -1,7 +1,8 @@
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use serde::Deserialize;
 
-use crate::entities::{prelude::*, *};
+use crate::error::AppError;
+use crate::{entities::*, response::StatusCode};
 
 #[derive(Debug, Deserialize)]
 pub struct GetArticleQuery {
@@ -22,11 +23,42 @@ pub struct UpdateArticleQuery {
   pub lang: String,
 }
 
-pub async fn has_counter(url: String, conn: &DatabaseConnection) -> bool {
-  let res = WlCounter::find()
-    .filter(wl_counter::Column::Url.eq(url))
+pub async fn has_counter(
+  query_by: CounterQueryBy,
+  conn: &DatabaseConnection,
+) -> Result<bool, StatusCode> {
+  let mut query = wl_counter::Entity::find();
+  match query_by {
+    CounterQueryBy::Url(url) => query = query.filter(wl_counter::Column::Url.eq(url)),
+  }
+  let res = query
     .one(conn)
     .await
-    .unwrap();
-  res.is_some()
+    .map_err(AppError::from)?
+    .ok_or(StatusCode::Error);
+  Ok(res.is_ok())
+}
+
+#[derive(Clone)]
+pub enum CounterQueryBy {
+  Url(String),
+}
+
+pub async fn get_counter(
+  query_by: CounterQueryBy,
+  conn: &DatabaseConnection,
+) -> Result<wl_counter::Model, StatusCode> {
+  if !has_counter(query_by.clone(), conn).await? {
+    Err(StatusCode::Error)
+  } else {
+    let mut query = wl_counter::Entity::find();
+    match query_by {
+      CounterQueryBy::Url(url) => query = query.filter(wl_counter::Column::Url.eq(url)),
+    }
+    query
+      .one(conn)
+      .await
+      .map_err(AppError::from)?
+      .ok_or(StatusCode::Error)
+  }
 }

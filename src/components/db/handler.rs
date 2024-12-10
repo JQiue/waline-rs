@@ -6,8 +6,8 @@ use actix_web::{
 use serde_json::json;
 
 use crate::{
+  app::AppState,
   components::db::{model::*, service},
-  AppState,
 };
 
 #[get("/db")]

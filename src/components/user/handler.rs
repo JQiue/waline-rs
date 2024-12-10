@@ -8,8 +8,9 @@ use actix_web::{
 use serde_json::json;
 
 use crate::{
+  app::AppState,
   components::user::{model::*, service},
-  AppState,
+  response::Response,
 };
 
 #[post("/user")]
@@ -25,17 +26,9 @@ pub async fn user_register(
     password,
     url,
   }) = body;
-
-  match service::user_register(&state, lang, display_name, email, password, url).await {
-    Ok(data) => HttpResponse::Ok().json(json!({
-     "data": data,
-     "errmsg": "",
-     "errno": 0,
-    })),
-    Err(err) => HttpResponse::Ok().json(json!({
-     "errmsg": err,
-     "errno": 1000,
-    })),
+  match service::user_register(&state, display_name, email, password, url).await {
+    Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(lang))),
+    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(lang))),
   }
 }
 
@@ -47,25 +40,14 @@ pub async fn user_login(state: Data<AppState>, body: Json<UserLoginBody>) -> Htt
     password,
   }) = body;
   match service::user_login(&state, code, email, password).await {
-    Ok(data) => HttpResponse::Ok().json(json!({
-     "data": data,
-     "errmsg": "",
-     "errno": 0,
-    })),
-    Err(msg) => HttpResponse::Ok().json(json!({
-     "errmsg": msg,
-     "errno": 1000,
-    })),
+    Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), None)),
+    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),
   }
 }
 
 #[delete("/token")]
 pub async fn user_logout() -> HttpResponse {
-  service::user_logout().await;
-  HttpResponse::Ok().json(json! ({
-    "errno": 0,
-    "errmsg": "",
-  }))
+  HttpResponse::Ok().json(Response::<()>::success(None, None))
 }
 
 fn extract_token_from_header(header_value: &Option<&HeaderValue>) -> Option<String> {
@@ -84,20 +66,14 @@ fn extract_token_from_header(header_value: &Option<&HeaderValue>) -> Option<Stri
 async fn get_login_user_info(req: HttpRequest, state: Data<AppState>) -> HttpResponse {
   if let Some(token) = extract_token_from_header(&req.headers().get(AUTHORIZATION)) {
     match service::get_login_user_info(&state, token).await {
-      Ok(data) => HttpResponse::Ok().json(json! ({
-        "errno": 0,
-        "errmsg": "",
-        "data": data,
-      })),
-      Err(err) => HttpResponse::Ok().json(json! ({
-        "errmsg": err,
-        "errno":1000,
-      })),
+      Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), None)),
+      Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),
     }
   } else {
-    HttpResponse::Ok().json(json! ({
-      "errno":1000,
-    }))
+    HttpResponse::Ok().json(Response::<()>::error(
+      crate::response::StatusCode::Error,
+      None,
+    ))
   }
 }
 
@@ -114,14 +90,8 @@ pub async fn set_user_profile(
     password,
   }) = body;
   match service::set_user_profile(&state, display_name, label, url, password).await {
-    Ok(_) => HttpResponse::Ok().json(json! ({
-      "errno": 0,
-      "errmsg": "",
-    })),
-    Err(err) => HttpResponse::Ok().json(json! ({
-      "errno": 1000,
-      "errmsg": err,
-    })),
+    Ok(_) => HttpResponse::Ok().json(Response::<()>::success(None, None)),
+    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),
   }
 }
 
@@ -151,7 +121,7 @@ pub async fn set_user_type(
 pub async fn get_user_info(state: Data<AppState>, query: Query<GetUserQuery>) -> HttpResponse {
   let Query(GetUserQuery { email, lang, page }) = query;
   if page.is_some() {
-    match service::get_user_list(&state, page).await {
+    match service::get_user_info_list(&state, page).await {
       Ok(data) => HttpResponse::Ok().json(json!({
         "data": {
           "data": data,
@@ -168,17 +138,9 @@ pub async fn get_user_info(state: Data<AppState>, query: Query<GetUserQuery>) ->
       })),
     }
   } else {
-    match service::get_user(&state, lang, email).await {
-      Ok(data) => HttpResponse::Ok().json(json!({
-        "data": data,
-        "errmsg": "",
-        "errno": 0
-      })),
-      Err(err) => HttpResponse::Ok().json(json!({
-        "data": "",
-        "errmsg": err,
-        "errno": 0
-      })),
+    match service::get_user_info(&state, email).await {
+      Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), lang)),
+      Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, lang)),
     }
   }
 }
@@ -187,16 +149,12 @@ pub async fn get_user_info(state: Data<AppState>, query: Query<GetUserQuery>) ->
 #[post("/verification")]
 pub async fn verification(state: Data<AppState>, query: Query<VerificationQuery>) -> HttpResponse {
   let Query(VerificationQuery { email, token }) = query;
-
   match service::verification(&state, email, token).await {
-    Ok(_) => HttpResponse::Ok().json(json! ({
-      "errmsg": "用户已注册",
-      "errno": 1000,
-    })),
-    Err(_) => HttpResponse::Ok().json(json! ({
-      "errmsg": "用户已注册",
-      "errno": 1000,
-    })),
+    Ok(_) => HttpResponse::Ok().json(Response::<()>::error(
+      crate::response::StatusCode::UserRegistered,
+      None,
+    )),
+    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),
   }
 }
 
@@ -219,12 +177,8 @@ pub async fn set_2fa(state: Data<AppState>, body: Json<Set2faBody>) -> HttpRespo
 #[get("/token/2fa")]
 pub async fn get_2fa(state: Data<AppState>, query: Query<Get2faQuery>) -> HttpResponse {
   let Query(Get2faQuery { lang, email }) = query;
-  match service::get_2fa(&state, email, lang).await {
-    Ok(data) => HttpResponse::Ok().json(json!({
-      "errno": 0,
-      "errmsg": "",
-      "data": data
-    })),
+  match service::get_2fa(&state, email).await {
+    Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(lang))),
     Err(_) => HttpResponse::Ok().json(json!({
       "errno": 1000,
       "errmsg": "二部验证失败"

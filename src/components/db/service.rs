@@ -1,14 +1,15 @@
 use crate::{
+  app::AppState,
   components::user::model::{has_user, UserQueryBy},
-  entities::{prelude::*, *},
-  AppState,
+  entities::{wl_comment, wl_counter, wl_users},
+  response::StatusCode,
 };
 use chrono::{DateTime, Utc};
 use sea_orm::{EntityTrait, Iterable, QuerySelect, Set};
 use serde_json::{json, Value};
 
 pub async fn export_data(state: &AppState, _lang: String) -> Result<Value, String> {
-  let comments = WlComment::find()
+  let comments = wl_comment::Entity::find()
     .select_only()
     .columns(wl_comment::Column::iter().filter(|col| !matches!(col, wl_comment::Column::Id)))
     .column_as(wl_comment::Column::Id, "objectId")
@@ -16,7 +17,7 @@ pub async fn export_data(state: &AppState, _lang: String) -> Result<Value, Strin
     .all(&state.conn)
     .await
     .unwrap();
-  let counters = WlCounter::find()
+  let counters = wl_counter::Entity::find()
     .select_only()
     .columns(wl_counter::Column::iter().filter(|col| !matches!(col, wl_counter::Column::Id)))
     .column_as(wl_counter::Column::Id, "objectId")
@@ -24,7 +25,7 @@ pub async fn export_data(state: &AppState, _lang: String) -> Result<Value, Strin
     .all(&state.conn)
     .await
     .unwrap();
-  let users = WlUsers::find()
+  let users = wl_users::Entity::find()
     .select_only()
     .columns(wl_users::Column::iter().filter(|col| !matches!(col, wl_users::Column::Id)))
     .column_as(wl_users::Column::Id, "objectId")
@@ -75,7 +76,7 @@ pub async fn create_comment_data(
     updated_at: Set(updated_at),
     ..Default::default()
   };
-  match WlComment::insert(model).exec(&state.conn).await {
+  match wl_comment::Entity::insert(model).exec(&state.conn).await {
     Ok(res) => {
       println!("{:?}", res);
       Ok(true)
@@ -116,7 +117,7 @@ pub async fn create_counter_data(
     updated_at: Set(updated_at),
     ..Default::default()
   };
-  match WlCounter::insert(model).exec(&state.conn).await {
+  match wl_counter::Entity::insert(model).exec(&state.conn).await {
     Ok(_) => Ok(true),
     Err(err) => Err(err.to_string()),
   }
@@ -124,10 +125,10 @@ pub async fn create_counter_data(
 
 // todo
 pub async fn update_comment_data(
-  state: &AppState,
-  lang: String,
-  object_id: Option<u32>,
-  user_id: Option<u32>,
+  _state: &AppState,
+  _lang: String,
+  _object_id: Option<u32>,
+  _user_id: Option<u32>,
 ) -> Result<bool, String> {
   Ok(true)
 }
@@ -157,7 +158,7 @@ pub async fn create_user_data(
     updated_at: Set(updated_at),
     ..Default::default()
   };
-  match WlUsers::insert(model).exec(&state.conn).await {
+  match wl_users::Entity::insert(model).exec(&state.conn).await {
     Ok(_) => Ok(true),
     Err(err) => Err(err.to_string()),
   }
@@ -165,7 +166,7 @@ pub async fn create_user_data(
 
 pub async fn update_user_data(
   state: &AppState,
-  lang: String,
+  _lang: String,
   object_id: Option<u32>,
   display_name: Option<String>,
   password: Option<String>,
@@ -176,12 +177,12 @@ pub async fn update_user_data(
   two_factor_auth: Option<String>,
   created_at: Option<DateTime<Utc>>,
   updated_at: Option<DateTime<Utc>>,
-) -> Result<bool, String> {
+) -> Result<bool, StatusCode> {
   if has_user(
     UserQueryBy::Email(email.clone().unwrap_or("".to_string())),
     &state.conn,
   )
-  .await
+  .await?
   {
     let model = wl_users::ActiveModel {
       id: Set(object_id.unwrap()),
@@ -196,9 +197,9 @@ pub async fn update_user_data(
       updated_at: Set(updated_at),
       ..Default::default()
     };
-    match WlUsers::update(model).exec(&state.conn).await {
+    match wl_users::Entity::update(model).exec(&state.conn).await {
       Ok(_) => Ok(true),
-      Err(err) => Err(err.to_string()),
+      Err(_) => Err(StatusCode::Error),
     }
   } else {
     let model = wl_users::ActiveModel {
@@ -213,23 +214,27 @@ pub async fn update_user_data(
       updated_at: Set(updated_at),
       ..Default::default()
     };
-    match WlUsers::insert(model).exec(&state.conn).await {
+    match wl_users::Entity::insert(model).exec(&state.conn).await {
       Ok(_) => Ok(true),
-      Err(err) => Err(err.to_string()),
+      Err(_) => Err(StatusCode::Error),
     }
   }
 }
 
-pub async fn delete_data(state: &AppState, table: &str, lang: String) -> Result<bool, String> {
+pub async fn delete_data(state: &AppState, table: &str, _lang: String) -> Result<bool, String> {
   match table {
     "Comment" => {
-      let res = WlComment::delete_many().exec(&state.conn).await.unwrap();
-      println!("Delete Result >>> {:?}", res);
+      wl_comment::Entity::delete_many()
+        .exec(&state.conn)
+        .await
+        .unwrap();
       Ok(true)
     }
     "Counter" => {
-      let res = WlCounter::delete_many().exec(&state.conn).await.unwrap();
-      println!("Delete Result >>> {:?}", res);
+      wl_comment::Entity::delete_many()
+        .exec(&state.conn)
+        .await
+        .unwrap();
       Ok(true)
     }
     "User" => Ok(true),

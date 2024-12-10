@@ -51,18 +51,3 @@ pub fn get_translation(lang: &str, key: &str) -> String {
 
   translations.get(key).copied().unwrap_or(key).to_string()
 }
-
-pub fn get_language(accept_language: &str) -> &'static str {
-  accept_language
-    .split(',')
-    .next()
-    .and_then(|lang| lang.split('-').next())
-    .map(|lang| lang.to_lowercase())
-    .map(|lang| match lang.as_str() {
-      "zh" => "zh-cn",
-      "en" => "en",
-      "jp" => "jp",
-      _ => "en",
-    })
-    .unwrap_or("en")
-}

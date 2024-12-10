@@ -2,29 +2,78 @@ use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  entities::{prelude::*, *},
-  helpers::{
-    email::extract_email_prefix, markdown::render_md_to_html, time::get_current_utc_time, ua,
-  },
+  entities::wl_comment,
+  error::AppError,
+  helpers::{email::extract_email_prefix, markdown::render_md_to_html, ua},
 };
 
-pub async fn get_user(query_by: UserQueryBy, conn: &DatabaseConnection) -> wl_users::Model {
-  let mut query = WlUsers::find();
-  match query_by {
-    UserQueryBy::Id(id) => query = query.filter(wl_users::Column::Id.eq(id)),
-    UserQueryBy::Email(email) => query = query.filter(wl_users::Column::Email.eq(email)),
-  }
-  query.one(conn).await.unwrap().unwrap()
+#[derive(Clone)]
+pub enum CommentQueryBy {
+  Id(u32),
+  Email(String),
 }
 
-pub async fn is_anonymous(comment_id: u32, conn: &DatabaseConnection) -> bool {
-  let res = WlComment::find_by_id(comment_id)
+pub async fn has_comment(
+  query_by: CommentQueryBy,
+  conn: &DatabaseConnection,
+) -> Result<bool, AppError> {
+  let mut query = wl_comment::Entity::find();
+  match query_by {
+    CommentQueryBy::Id(id) => query = query.filter(wl_comment::Column::Id.eq(id)),
+    CommentQueryBy::Email(email) => query = query.filter(wl_comment::Column::Mail.eq(email)),
+  }
+  let res = query.one(conn).await.map_err(AppError::from)?;
+  Ok(res.is_some())
+}
+
+pub async fn get_comment(
+  query_by: CommentQueryBy,
+  conn: &DatabaseConnection,
+) -> Result<wl_comment::Model, AppError> {
+  if !has_comment(query_by.to_owned(), conn).await? {
+    return Err(AppError::Error);
+  }
+  let mut query = wl_comment::Entity::find();
+  match query_by {
+    CommentQueryBy::Id(id) => query = query.filter(wl_comment::Column::Id.eq(id)),
+    CommentQueryBy::Email(email) => query = query.filter(wl_comment::Column::Mail.eq(email)),
+  }
+  query
+    .one(conn)
+    .await
+    .map_err(AppError::from)?
+    .ok_or(AppError::Error)
+}
+
+pub async fn is_anonymous(comment_id: u32, conn: &DatabaseConnection) -> Result<bool, AppError> {
+  let res = wl_comment::Entity::find_by_id(comment_id)
     .filter(wl_comment::Column::UserId.is_not_null())
     .filter(wl_comment::Column::UserId.ne(""))
     .one(conn)
     .await
-    .unwrap();
-  res.is_none()
+    .map_err(AppError::from)?;
+  Ok(res.is_none())
+}
+
+pub async fn is_duplicate(
+  comment_id: u32,
+  url: String,
+  mail: String,
+  nick: String,
+  link: String,
+  comment: String,
+  conn: &DatabaseConnection,
+) -> Result<bool, AppError> {
+  let res = wl_comment::Entity::find_by_id(comment_id)
+    .filter(wl_comment::Column::Url.eq(url))
+    .filter(wl_comment::Column::Mail.ne(mail))
+    .filter(wl_comment::Column::Nick.ne(nick))
+    .filter(wl_comment::Column::Link.ne(link))
+    .filter(wl_comment::Column::Comment.ne(comment))
+    .one(conn)
+    .await
+    .map_err(AppError::from)?;
+  Ok(res.is_some())
 }
 
 #[derive(Serialize, Debug)]
@@ -53,7 +102,7 @@ pub struct DataEntry {
 }
 
 pub fn build_data_entry(comment: wl_comment::Model, anonymous_avatar: String) -> DataEntry {
-  let (browser, os) = ua::parse(comment.ua.as_ref().unwrap().to_string());
+  let (browser, os) = ua::parse(comment.ua.unwrap_or("".to_owned()));
   DataEntry {
     status: comment.status,
     like: comment.like,
@@ -70,7 +119,7 @@ pub fn build_data_entry(comment: wl_comment::Model, anonymous_avatar: String) ->
     time: comment.created_at.unwrap().timestamp_millis(),
     pid: comment.pid,
     rid: comment.rid,
-    comment: Some(render_md_to_html(comment.comment.as_ref().unwrap())),
+    comment: Some(render_md_to_html(&comment.comment.unwrap_or("".to_owned()))),
     avatar: if comment.user_id.is_some() {
       format!(
         "https://q1.qlogo.cn/g?b=qq&nk={}&s=100",
@@ -83,11 +132,6 @@ pub fn build_data_entry(comment: wl_comment::Model, anonymous_avatar: String) ->
     label: None,
     children: vec![],
   }
-}
-
-pub enum UserQueryBy {
-  Id(u32),
-  Email(String),
 }
 
 #[derive(Deserialize)]
@@ -116,7 +160,7 @@ pub fn create_comment_model(
   pid: Option<i32>,
   rid: Option<i32>,
 ) -> wl_comment::ActiveModel {
-  let utc_time = get_current_utc_time();
+  let utc_time = helpers::time::utc_now();
   wl_comment::ActiveModel {
     user_id: Set(user_id),
     comment: Set(Some(comment)),
@@ -157,7 +201,7 @@ pub struct CreateCommentBody {
   pub pid: Option<i32>,
   // span id
   pub rid: Option<i32>,
-  //
+  // at
   pub at: Option<String>,
 }
 

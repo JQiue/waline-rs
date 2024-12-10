@@ -3,42 +3,34 @@ use actix_web::{
   web::{Data, Json, Path, Query},
   HttpRequest, HttpResponse,
 };
-use serde_json::json;
 
 use crate::{
+  app::AppState,
   components::comment::{model::*, service},
-  AppState,
+  response::Response,
 };
 
 /// get comment
 #[get("/comment")]
-async fn get_comment(
+async fn get_comment_info(
   state: Data<AppState>,
   _req: HttpRequest,
   query: Query<GetCommentQuery>,
 ) -> HttpResponse {
   let Query(GetCommentQuery {
-    lang: _,
+    lang,
     path,
     page_size,
     page,
-    sort_by: _,
+    sort_by,
     r#type: _,
     owner,
     status: _,
     keyword: _,
   }) = query;
-
-  match service::get_comment(&state, path, owner, page, page_size).await {
-    Ok(data) => HttpResponse::Ok().json(json!({
-      "errno": 0,
-      "errmsg": "",
-      "data": data
-    })),
-    Err(_) => HttpResponse::Ok().json(json!({
-      "errno": 1000,
-      "errmsg": "",
-    })),
+  match service::get_comment_info(&state, path, owner, page, page_size, sort_by).await {
+    Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(lang))),
+    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(lang))),
   }
 }
 
@@ -50,7 +42,7 @@ async fn create_comment(
   query: Query<CreateCommentQuery>,
   body: Json<CreateCommentBody>,
 ) -> HttpResponse {
-  let Query(CreateCommentQuery { lang: _ }) = query;
+  let Query(CreateCommentQuery { lang }) = query;
   let Json(CreateCommentBody {
     comment,
     link,
@@ -63,15 +55,8 @@ async fn create_comment(
     at,
   }) = body;
   match service::create_comment(&state, comment, link, mail, nick, ua, url, pid, rid, at).await {
-    Ok(data) => HttpResponse::Ok().json(json!({
-      "errno": 0,
-      "errmsg": "",
-      "data": data
-    })),
-    Err(_) => HttpResponse::Ok().json(json!({
-      "errno": 1000,
-      "errmsg": "",
-    })),
+    Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(lang))),
+    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(lang))),
   }
 }
 
@@ -80,14 +65,8 @@ async fn create_comment(
 pub async fn delete_comment(state: Data<AppState>, path: Path<u32>) -> HttpResponse {
   let id = path.into_inner();
   match service::delete_comment(&state, id).await {
-    Ok(_) => HttpResponse::Ok().json(json!({
-      "errno": 0,
-      "errmsg": "",
-    })),
-    Err(_) => HttpResponse::Ok().json(json!({
-      "errno": 1000,
-      "errmsg": "",
-    })),
+    Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), None)),
+    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),
   }
 }
 
@@ -111,14 +90,7 @@ async fn update_comment(
   let id: u32 = path.into_inner();
   match service::update_comment(&state, id, status, like, comment, link, mail, nick, ua, url).await
   {
-    Ok(data) => HttpResponse::Ok().json(json!({
-      "data": data,
-      "errno": 0,
-      "errmsg": "",
-    })),
-    Err(_) => HttpResponse::Ok().json(json!({
-      "errno": 1000,
-      "errmsg": "",
-    })),
+    Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), None)),
+    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),
   }
 }

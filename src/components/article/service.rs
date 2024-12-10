@@ -1,65 +1,34 @@
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, Set};
+use sea_orm::{ActiveModelTrait, IntoActiveModel, Set};
 use serde_json::{json, Value};
-use wl_counter::Model;
 
+use crate::error::AppError;
 use crate::{
-  components::article::model::*,
-  entities::{prelude::*, *},
-  AppState,
+  app::AppState, components::article::model::*, entities::wl_counter, response::StatusCode,
 };
 
 pub async fn get_article(
   state: &AppState,
   path: String,
   r#type: String,
-  _lang: String,
-) -> Result<Vec<Value>, String> {
+) -> Result<Vec<Value>, StatusCode> {
+  let mut data = vec![];
   if r#type == "time" {
-    let mut data = vec![];
     for path in path.split(',') {
-      let model = WlCounter::find()
-        .filter(wl_counter::Column::Url.eq(path))
-        .one(&state.conn)
-        .await
-        .unwrap();
-      if let Some(model) = model {
-        data.push(json!({
-          "time": model.time.unwrap(),
-        }));
-      } else {
-        data.push(json!({ "time": 0 }))
-      }
+      let counter = get_counter(CounterQueryBy::Url(path.to_owned()), &state.conn).await?;
+      data.push(json!({"time": counter.time.unwrap_or(0)}));
     }
-    Ok(data)
   } else {
-    let mut data = vec![];
-    let model = WlCounter::find()
-      .filter(wl_counter::Column::Url.eq(path))
-      .one(&state.conn)
-      .await
-      .unwrap();
-
-    if let Some(model) = model {
-      data.push(json!({
-        "reaction0": model.reaction0,
-        "reaction1": model.reaction1,
-        "reaction2": model.reaction2,
-        "reaction3": model.reaction3,
-        "reaction4": model.reaction4,
-        "reaction5": model.reaction5,
-      }));
-    } else {
-      data.push(json!({
-        "reaction0": 0,
-        "reaction1": 1,
-        "reaction2": 2,
-        "reaction3": 3,
-        "reaction4": 4,
-        "reaction5": 5,
-      }));
-    }
-    Ok(data)
+    let model = get_counter(CounterQueryBy::Url(path), &state.conn).await?;
+    data.push(json!({
+      "reaction0": model.reaction0,
+      "reaction1": model.reaction1,
+      "reaction2": model.reaction2,
+      "reaction3": model.reaction3,
+      "reaction4": model.reaction4,
+      "reaction5": model.reaction5,
+    }));
   }
+  Ok(data)
 }
 
 pub async fn update_article(
@@ -68,170 +37,104 @@ pub async fn update_article(
   path: String,
   r#type: String,
   _lang: String,
-) -> Result<Vec<Model>, String> {
+) -> Result<Vec<wl_counter::Model>, StatusCode> {
   let mut data = vec![];
   if r#type == "time" {
-    if has_counter(path.clone(), &state.conn).await {
-      let model = WlCounter::find()
-        .filter(wl_counter::Column::Url.eq(path.clone()))
-        .one(&state.conn)
+    let mut active_counter = get_counter(CounterQueryBy::Url(path), &state.conn)
+      .await?
+      .into_active_model();
+    active_counter.time = Set(Some(
+      active_counter.time.take().unwrap_or(Some(0)).unwrap_or(0) + 1,
+    ));
+    data.push(
+      active_counter
+        .update(&state.conn)
         .await
-        .unwrap()
-        .unwrap();
-      let model = wl_counter::ActiveModel {
-        id: Set(model.id),
-        time: Set(Some(model.time.unwrap() + 1)),
-        ..Default::default()
-      };
-      data.push(WlCounter::update(model).exec(&state.conn).await.unwrap());
-    } else {
-      let model = wl_counter::ActiveModel {
-        url: Set(path.clone()),
-        time: Set(Some(1)),
-        ..Default::default()
-      };
-      WlCounter::insert(model).exec(&state.conn).await.unwrap();
-      data.push(
-        WlCounter::find()
-          .filter(wl_counter::Column::Url.eq(path.clone()))
-          .one(&state.conn)
-          .await
-          .unwrap()
-          .unwrap(),
-      )
-    }
+        .map_err(AppError::from)?,
+    );
   } else {
     fn set_reaction_value(
-      mut model: wl_counter::ActiveModel,
-      counter: wl_counter::Model,
+      mut counter: wl_counter::Model,
       reaction: &str,
       action: Option<String>,
-    ) -> wl_counter::ActiveModel {
+    ) -> wl_counter::Model {
       match reaction {
         "reaction0" => {
-          model.reaction0 = if counter.reaction0.is_none() {
-            Set(Some(1))
-          } else if action.is_none() {
-            Set(Some(counter.reaction0.unwrap() + 1))
+          counter.reaction0 = if action.is_none() {
+            Some(counter.reaction0.unwrap_or(0) + 1)
           } else {
-            Set(Some(counter.reaction0.unwrap() - 1))
+            Some(counter.reaction0.unwrap_or(1) - 1)
           }
         }
         "reaction1" => {
-          model.reaction1 = if counter.reaction1.is_none() {
-            Set(Some(1))
-          } else if action.is_none() {
-            Set(Some(counter.reaction1.unwrap() + 1))
+          counter.reaction1 = if action.is_none() {
+            Some(counter.reaction1.unwrap_or(0) + 1)
           } else {
-            Set(Some(counter.reaction1.unwrap() - 1))
+            Some(counter.reaction1.unwrap_or(1) - 1)
           }
         }
         "reaction2" => {
-          model.reaction2 = if counter.reaction2.is_none() {
-            Set(Some(1))
-          } else if action.is_none() {
-            Set(Some(counter.reaction2.unwrap() + 1))
+          counter.reaction2 = if action.is_none() {
+            Some(counter.reaction2.unwrap_or(0) + 1)
           } else {
-            Set(Some(counter.reaction2.unwrap() - 1))
+            Some(counter.reaction2.unwrap_or(1) - 1)
           }
         }
         "reaction3" => {
-          model.reaction3 = if counter.reaction3.is_none() {
-            Set(Some(1))
-          } else if action.is_none() {
-            Set(Some(counter.reaction3.unwrap() + 1))
+          counter.reaction3 = if action.is_none() {
+            Some(counter.reaction3.unwrap_or(0) + 1)
           } else {
-            Set(Some(counter.reaction3.unwrap() - 1))
+            Some(counter.reaction3.unwrap_or(1) - 1)
           }
         }
         "reaction4" => {
-          model.reaction4 = if counter.reaction4.is_none() {
-            Set(Some(1))
-          } else if action.is_none() {
-            Set(Some(counter.reaction4.unwrap() + 1))
+          counter.reaction4 = if action.is_none() {
+            Some(counter.reaction4.unwrap_or(0) + 1)
           } else {
-            Set(Some(counter.reaction4.unwrap() - 1))
+            Some(counter.reaction4.unwrap_or(1) - 1)
           }
         }
         "reaction5" => {
-          model.reaction5 = if counter.reaction5.is_none() {
-            Set(Some(1))
-          } else if action.is_none() {
-            Set(Some(counter.reaction5.unwrap() + 1))
+          counter.reaction5 = if action.is_none() {
+            Some(counter.reaction5.unwrap_or(0) + 1)
           } else {
-            Set(Some(counter.reaction5.unwrap() - 1))
+            Some(counter.reaction5.unwrap_or(1) - 1)
           }
         }
         "reaction6" => {
-          model.reaction6 = if counter.reaction6.is_none() {
-            Set(Some(1))
-          } else if action.is_none() {
-            Set(Some(counter.reaction6.unwrap() + 1))
+          counter.reaction6 = if action.is_none() {
+            Some(counter.reaction6.unwrap_or(0) + 1)
           } else {
-            Set(Some(counter.reaction6.unwrap() - 1))
+            Some(counter.reaction6.unwrap_or(1) - 1)
           }
         }
         "reaction7" => {
-          model.reaction7 = if counter.reaction7.is_none() {
-            Set(Some(1))
-          } else if action.is_none() {
-            Set(Some(counter.reaction7.unwrap() + 1))
+          counter.reaction7 = if action.is_none() {
+            Some(counter.reaction7.unwrap_or(0) + 1)
           } else {
-            Set(Some(counter.reaction7.unwrap() - 1))
+            Some(counter.reaction7.unwrap_or(1) - 1)
           }
         }
         "reaction8" => {
-          model.reaction8 = if counter.reaction8.is_none() {
-            Set(Some(1))
-          } else if action.is_none() {
-            Set(Some(counter.reaction8.unwrap() + 1))
+          counter.reaction8 = if action.is_none() {
+            Some(counter.reaction8.unwrap_or(0) + 1)
           } else {
-            Set(Some(counter.reaction8.unwrap() - 1))
+            Some(counter.reaction8.unwrap_or(1) - 1)
           }
         }
         _ => {}
       }
-      model
+      counter
     }
-    if has_counter(path.clone(), &state.conn).await {
-      let counter = WlCounter::find()
-        .filter(wl_counter::Column::Url.eq(path.clone()))
-        .one(&state.conn)
+    let mut counter = get_counter(CounterQueryBy::Url(path), &state.conn).await?;
+    counter = set_reaction_value(counter, &r#type, action);
+    data.push(
+      counter
+        .into_active_model()
+        .update(&state.conn)
         .await
-        .unwrap()
-        .unwrap();
-      let mut model = wl_counter::ActiveModel {
-        id: Set(counter.id),
-        ..Default::default()
-      };
-      model = set_reaction_value(model, counter, &r#type, action);
-      data.push(WlCounter::update(model).exec(&state.conn).await.unwrap());
-    } else {
-      let mut model = wl_counter::ActiveModel {
-        ..Default::default()
-      };
-      match r#type.as_str() {
-        "reaction0" => model.reaction0 = Set(Some(0)),
-        "reaction1" => model.reaction1 = Set(Some(0)),
-        "reaction2" => model.reaction2 = Set(Some(0)),
-        "reaction3" => model.reaction3 = Set(Some(0)),
-        "reaction4" => model.reaction4 = Set(Some(0)),
-        "reaction5" => model.reaction5 = Set(Some(0)),
-        "reaction6" => model.reaction6 = Set(Some(0)),
-        "reaction7" => model.reaction7 = Set(Some(0)),
-        "reaction8" => model.reaction8 = Set(Some(0)),
-        _ => {}
-      }
-      WlCounter::insert(model).exec(&state.conn).await.unwrap();
-      data.push(
-        WlCounter::find()
-          .filter(wl_counter::Column::Url.eq(path.clone()))
-          .one(&state.conn)
-          .await
-          .unwrap()
-          .unwrap(),
-      )
-    }
+        .map_err(AppError::from)?,
+    );
   }
   Ok(data)
 }
