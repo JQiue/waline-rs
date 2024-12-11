@@ -1,6 +1,6 @@
 use actix_web::{
   delete, get,
-  http::header::{HeaderValue, AUTHORIZATION},
+  http::header::AUTHORIZATION,
   post, put,
   web::{Data, Json, Path, Query},
   HttpRequest, HttpResponse,
@@ -10,6 +10,7 @@ use serde_json::json;
 use crate::{
   app::AppState,
   components::user::{model::*, service},
+  helpers::header::{extract_token, extract_token_from_header},
   response::Response,
 };
 
@@ -50,17 +51,6 @@ pub async fn user_logout() -> HttpResponse {
   HttpResponse::Ok().json(Response::<()>::success(None, None))
 }
 
-fn extract_token_from_header(header_value: &Option<&HeaderValue>) -> Option<String> {
-  header_value.and_then(|value| {
-    let value = value.to_str().ok()?;
-    if value.starts_with("Bearer ") {
-      Some(value.split(' ').nth(1)?.to_string())
-    } else {
-      None
-    }
-  })
-}
-
 /// 获取登录用户信息
 #[get("/token")]
 async fn get_login_user_info(req: HttpRequest, state: Data<AppState>) -> HttpResponse {
@@ -80,6 +70,7 @@ async fn get_login_user_info(req: HttpRequest, state: Data<AppState>) -> HttpRes
 /// set user profile
 #[put("/user")]
 pub async fn set_user_profile(
+  req: HttpRequest,
   state: Data<AppState>,
   body: Json<SetUserProfileBody>,
 ) -> HttpResponse {
@@ -89,9 +80,15 @@ pub async fn set_user_profile(
     url,
     password,
   }) = body;
-  match service::set_user_profile(&state, display_name, label, url, password).await {
-    Ok(_) => HttpResponse::Ok().json(Response::<()>::success(None, None)),
-    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),
+
+  match extract_token(&req) {
+    Ok(token) => {
+      match service::set_user_profile(&state, token, display_name, label, url, password).await {
+        Ok(_) => HttpResponse::Ok().json(Response::<()>::success(None, None)),
+        Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),
+      }
+    }
+    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err.into(), None)),
   }
 }
 

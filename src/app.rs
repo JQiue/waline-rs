@@ -21,6 +21,7 @@ use sea_orm::{Database, DatabaseConnection};
 pub struct AppState {
   pub conn: DatabaseConnection,
   pub anonymous_avatar: Arc<String>,
+  pub jwt_key: String,
 }
 
 async fn health_check() -> HttpResponse {
@@ -44,6 +45,7 @@ pub async fn start() -> Result<(), AppError> {
   let db = Database::connect(app_config.database_url).await?;
   db.ping().await?;
   let state = AppState {
+    jwt_key: app_config.jwt_key,
     conn: db,
     anonymous_avatar: "https://seccdn.libravatar.org/avatar/d41d8cd98f00b204e9800998ecf8427e"
       .to_string()

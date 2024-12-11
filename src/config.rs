@@ -15,6 +15,7 @@ pub struct Config {
   pub host: String,
   pub port: u16,
   pub database_url: String,
+  pub jwt_key: String,
 }
 
 impl Config {

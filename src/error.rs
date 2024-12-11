@@ -5,6 +5,7 @@ pub enum AppError {
   Error,
   DatabaseError,
   UserNotFound,
+  AuthorizationError,
 }
 
 impl From<AppError> for StatusCode {
@@ -13,6 +14,7 @@ impl From<AppError> for StatusCode {
       AppError::DatabaseError => StatusCode::Error,
       AppError::Error => StatusCode::Error,
       AppError::UserNotFound => StatusCode::Error,
+      AppError::AuthorizationError => StatusCode::Error,
     };
     tracing::error!("{:#?}", err);
     status_code
@@ -49,6 +51,13 @@ impl From<helpers::jwt::Error> for AppError {
 
 impl From<helpers::hash::BcryptError> for AppError {
   fn from(err: helpers::hash::BcryptError) -> Self {
+    tracing::error!("{:#?}", err);
+    AppError::Error
+  }
+}
+
+impl From<actix_web::http::header::ToStrError> for AppError {
+  fn from(err: actix_web::http::header::ToStrError) -> Self {
     tracing::error!("{:#?}", err);
     AppError::Error
   }

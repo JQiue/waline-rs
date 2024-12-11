@@ -1,5 +1,6 @@
 use sea_orm::{
-  ActiveModelTrait, ColumnTrait, EntityTrait, Iterable, QueryFilter, QuerySelect, Set,
+  ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel, Iterable, QueryFilter, QuerySelect,
+  Set,
 };
 use serde_json::{json, Value};
 
@@ -65,10 +66,8 @@ pub async fn user_login(
   } else {
     state.anonymous_avatar.to_string()
   };
-  // let payload = token::Claims::new(user.email.clone(), 1);
-  // let token = token::sign(payload, "waline".to_string());
   let token =
-    helpers::jwt::sign(user.email.clone(), "waline".to_string(), 86400).map_err(AppError::from)?;
+    helpers::jwt::sign(user.email.clone(), state.jwt_key.clone(), 86400).map_err(AppError::from)?;
   let mail_md5 = helpers::hash::md5(user.email.as_bytes());
   let data = json!({
     "display_name": user.display_name,
@@ -95,7 +94,7 @@ pub async fn user_login(
 }
 
 pub async fn get_login_user_info(state: &AppState, token: String) -> Result<Value, StatusCode> {
-  let email = helpers::jwt::verify::<String>(token, "waline".to_string())
+  let email = helpers::jwt::verify::<String>(token, state.jwt_key.clone())
     .map_err(AppError::from)?
     .claims
     .data;
@@ -127,22 +126,23 @@ pub async fn get_login_user_info(state: &AppState, token: String) -> Result<Valu
 
 pub async fn set_user_profile(
   state: &AppState,
+  token: String,
   display_name: Option<String>,
   label: Option<String>,
   url: Option<String>,
   _password: Option<String>,
 ) -> Result<bool, StatusCode> {
-  // token::verify(value.to_string(), "waline".to_string());
-  let model = wl_users::ActiveModel {
-    display_name: Set(display_name.unwrap_or("".to_string())),
-    label: Set(label),
-    url: Set(url),
-    ..Default::default()
-  };
-  let res = wl_users::Entity::update(model)
-    .exec(&state.conn)
-    .await
-    .map_err(AppError::from);
+  let email = helpers::jwt::verify::<String>(token, state.jwt_key.to_string())
+    .map_err(AppError::from)?
+    .claims
+    .data;
+  let mut active_user = get_user(UserQueryBy::Email(email), &state.conn)
+    .await?
+    .into_active_model();
+  active_user.display_name = Set(display_name.unwrap_or("".to_string()));
+  active_user.label = Set(label);
+  active_user.url = Set(url);
+  let res = active_user.update(&state.conn).await;
   Ok(res.is_ok())
 }
 
