@@ -1,4 +1,4 @@
-use sea_orm::{ActiveModelTrait, IntoActiveModel};
+use sea_orm::{ActiveModelTrait, IntoActiveModel, Set};
 use serde_json::{json, Value};
 
 use crate::error::AppError;
@@ -49,7 +49,16 @@ pub async fn update_article(
     } else {
       counter = create_counter(path, &state.conn).await?;
     }
-    data.push(counter);
+    let mut active_counter = counter.into_active_model();
+    active_counter.time = Set(Some(
+      active_counter.time.take().unwrap_or(Some(0)).unwrap_or(0) + 1,
+    ));
+    data.push(
+      active_counter
+        .update(&state.conn)
+        .await
+        .map_err(AppError::from)?,
+    )
   } else {
     fn set_reaction_value(
       mut counter: wl_counter::Model,

@@ -29,7 +29,7 @@ pub async fn create_counter(
   conn: &DatabaseConnection,
 ) -> Result<wl_counter::Model, StatusCode> {
   let counter = wl_counter::ActiveModel {
-    time: Set(Some(1)),
+    time: Set(Some(0)),
     url: Set(url),
     created_at: Set(Some(utc_now())),
     ..Default::default()
