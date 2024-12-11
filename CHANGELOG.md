@@ -2,11 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.2] - 2024-12-11
+
+### 🐛 Bug Fixes
+
+- Fixed counter time can't update
+- Fixed can't create momment error
+- Fixed can't set user profile error
+
 ## [0.4.1] - 2024-12-10
 
 ### 🐛 Bug Fixes
 
 - Fixed an issue where counters could not be created
+
+### ⚙️ Miscellaneous Tasks
+
+- Release walini-mini version v0.4.1
 
 ## [0.4.0] - 2024-12-10
 
