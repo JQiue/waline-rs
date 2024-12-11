@@ -1,4 +1,7 @@
-use sea_orm::{ColumnTrait, EntityTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, Set};
+use helpers::time::utc_now;
+use sea_orm::{
+  ActiveModelTrait, ColumnTrait, EntityTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, Set,
+};
 use serde_json::{json, Value};
 
 use crate::{
@@ -120,7 +123,7 @@ pub async fn get_comment_info(
 }
 
 /// create comment
-/// No user is created if the user is anonymous
+/// 逻辑是先验证 jwt，如果 jwt 正确，则直接插入，否则需要验证评论是否重复，不重复则插入
 pub async fn create_comment(
   state: &AppState,
   comment: String,
@@ -133,94 +136,60 @@ pub async fn create_comment(
   rid: Option<i32>,
   _at: Option<String>,
 ) -> Result<Value, StatusCode> {
-  // 逻辑是先验证 jwt，如果 jwt 正确，则直接插入，否则需要验证评论是否重复，不重复则插入
   let html_output = render_md_to_html(&comment);
+  let mut avatar = state.anonymous_avatar.to_string();
   let mut new_comment = create_comment_model(
     None,
     comment,
     link,
     email.clone(),
     nick.clone(),
-    ua,
+    ua.clone(),
     url,
     pid,
     rid,
   );
+  let (browser, os) = ua::parse(ua);
+  let mut data = json!({
+    "addr":"",
+    "browser": browser,
+    "os": os,
+    "comment": html_output,
+  });
   let user = get_user(UserQueryBy::Email(email.clone()), &state.conn).await;
   if let Ok(user) = user {
     new_comment.user_id = Set(Some(user.id as i32));
+    data["label"] = json!(user.label);
+    data["mail"] = json!(user.email);
+    data["type"] = json!(user.r#type);
+    data["user_id"] = json!(user.id);
+    avatar = if let Some(prefix) = extract_email_prefix(email.clone()) {
+      format!("https://q1.qlogo.cn/g?b=qq&nk={}&s=100", prefix)
+    } else {
+      state.anonymous_avatar.to_string()
+    };
   }
-  match wl_comment::Entity::insert(new_comment)
-    .exec(&state.conn)
+  let comment = new_comment
+    .insert(&state.conn)
     .await
-  {
-    Ok(result) => {
-      let comment = get_comment(CommentQueryBy::Id(result.last_insert_id), &state.conn).await?;
-      let (browser, os) = ua::parse(comment.ua.unwrap_or("".to_owned()));
-      let time = comment.created_at.unwrap().timestamp_millis();
-      let pid = comment.pid;
-      let rid = comment.rid;
-      if nick == "匿名" {
-        let mut data = json!({
-          "addr":"",
-          "avatar": state.anonymous_avatar.to_string(),
-          "browser": browser,
-          "comment": html_output,
-          "like": comment.like.unwrap_or(0),
-          "link": comment.link,
-          "nick": comment.nick,
-          "objectId": comment.id,
-          "orig": comment.comment,
-          "os": os,
-          "status": comment.status,
-          "time": time,
-          "url": comment.url,
-        });
-        if let Some(pid) = pid {
-          data["pid"] = json!(pid);
-        }
-        if let Some(rid) = rid {
-          data["rid"] = json!(rid);
-        };
-        Ok(data)
-      } else {
-        let user = get_user(UserQueryBy::Email(email.clone()), &state.conn).await?;
-        let avatar = if let Some(prefix) = extract_email_prefix(email.clone()) {
-          format!("https://q1.qlogo.cn/g?b=qq&nk={}&s=100", prefix)
-        } else {
-          state.anonymous_avatar.to_string()
-        };
-        let mut data = json!({
-          "addr":"",
-          "avatar": avatar,
-          "browser": browser,
-          "comment": html_output,
-          "like": comment.like.unwrap_or(0),
-          "ip": comment.ip,
-          "label": user.label,
-          "mail": user.email,
-          "type": user.r#type,
-          "user_id": user.id,
-          "link": comment.link,
-          "nick": comment.nick,
-          "objectId": comment.id,
-          "orig": comment.comment,
-          "os": os,
-          "status": comment.status,
-          "time": time,
-          "url": comment.url,
-        });
-        if let Some(pid) = pid {
-          data["pid"] = json!(pid);
-        }
-        if let Some(rid) = rid {
-          data["rid"] = json!(rid);
-        };
-        Ok(data)
-      }
-    }
-    Err(_) => Err(StatusCode::Error),
+    .map_err(AppError::from)?;
+  data["avatar"] = json!(avatar);
+  data["like"] = json!(comment.like);
+  data["ip"] = json!(comment.ip);
+  data["link"] = json!(comment.link);
+  data["nick"] = json!(comment.nick);
+  data["objectId"] = json!(comment.id);
+  data["orig"] = json!(comment.comment);
+  data["status"] = json!(comment.status);
+  data["time"] = json!(comment.created_at.unwrap_or(utc_now()).timestamp_millis());
+  data["url"] = json!(comment.url);
+  if let Some(pid) = pid {
+    data["pid"] = json!(pid);
   }
+  if let Some(rid) = rid {
+    data["rid"] = json!(rid);
+  };
+  Ok(data)
 }
 
 pub async fn delete_comment(state: &AppState, id: u32) -> Result<bool, StatusCode> {
