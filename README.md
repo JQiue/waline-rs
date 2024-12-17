@@ -8,6 +8,10 @@ waline-mini is a Rust implementation of the Waline comment system. Compared to t
 
 Although the functionality is not yet complete, the goal of waline-mini is not to completely replace the original Waline, but to provide a more lightweight and efficient alternative.
 
+In my Ubuntu server, the waline-mini requires only about `5612Kb=5.48MB` of memory
+
+![mem](./images//image.png)
+
 ## Features
 
 + Extremely low memory usage: Uses only 1/10 of the memory compared to the Node.js version.
