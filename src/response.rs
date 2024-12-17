@@ -4,21 +4,24 @@ use serde::Serialize;
 
 use crate::locales::get_translation;
 
-/// 响应状态码枚举
+/// Response code enumeration
 #[derive(Debug, Clone, Copy, Serialize)]
-pub enum StatusCode {
-  /// 成功
+pub enum Code {
   Success,
   Error,
   UserRegistered,
+  DuplicateContent,
+  Unauthorized,
 }
 
-impl StatusCode {
+impl Code {
   pub fn message(&self, lang: String) -> String {
     match self {
-      StatusCode::Success => "".to_owned(),
-      StatusCode::Error => "失败".to_owned(),
-      StatusCode::UserRegistered => get_translation(&lang, "USER_REGISTERED"),
+      Code::Success => "".to_owned(),
+      Code::Error => "".to_owned(),
+      Code::UserRegistered => get_translation(&lang, "USER_REGISTERED"),
+      Code::DuplicateContent => get_translation(&lang, "Duplicate Content"),
+      Code::Unauthorized => get_translation(&lang, "Unauthorized"),
     }
   }
 }
@@ -36,11 +39,11 @@ impl<T> Response<T> {
     Response {
       data,
       errno: 0,
-      errmsg: StatusCode::Success.message(lang.unwrap_or("en".to_owned())),
+      errmsg: Code::Success.message(lang.unwrap_or("en".to_owned())),
     }
   }
 
-  pub fn error(code: StatusCode, lang: Option<String>) -> Self {
+  pub fn error(code: Code, lang: Option<String>) -> Self {
     Response {
       data: None,
       errno: 1000,

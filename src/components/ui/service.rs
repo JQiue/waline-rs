@@ -9,7 +9,7 @@ pub async fn ui_profile_page() -> String {
   let turnstile_key = env::var("turnstileKey")
     .ok()
     .unwrap_or("undefined".to_string());
-  let server_url = env::var("serverURL").ok().unwrap_or("".to_string());
+  let server_url = env::var("SERVER_URL").ok().unwrap_or("".to_string());
   format!(
     r#"<!doctype html>
 <html>
@@ -20,11 +20,11 @@ pub async fn ui_profile_page() -> String {
   </head>
   <body>
     <script>
-    window.SITE_URL = {site_url};
-    window.SITE_NAME = {site_name};
-    window.recaptchaV3Key = {recaptcha_v3_key};
-    window.turnstileKey = {turnstile_key};
-    window.serverURL = '{server_url}/api/';
+           window.SITE_URL = `{site_url}`;
+           window.SITE_NAME = `{site_name}`;
+           window.recaptchaV3Key = {recaptcha_v3_key};
+           window.turnstileKey = {turnstile_key};
+           window.serverURL = '{server_url}/api/'
     </script>
     <script src="//unpkg.com/@waline/admin"></script>
   </body>
@@ -44,7 +44,7 @@ pub async fn ui_login_page(redirect: Option<String>) -> String {
       let turnstile_key = env::var("turnstileKey")
         .ok()
         .unwrap_or("undefined".to_string());
-      let server_url = env::var("serverURL").ok().unwrap_or("".to_string());
+      let server_url = env::var("SERVER_URL").ok().unwrap_or("".to_string());
       format!(
         r#"<!doctype html>
            <html>
@@ -55,11 +55,11 @@ pub async fn ui_login_page(redirect: Option<String>) -> String {
              </head>
              <body>
                <script>
-               window.SITE_URL = {site_url};
-               window.SITE_NAME = {site_name};
-               window.recaptchaV3Key = {recaptcha_v3_key};
-               window.turnstileKey = {turnstile_key};
-               window.serverURL = '{server_url}/api/';
+           window.SITE_URL = `{site_url}`;
+           window.SITE_NAME = `{site_name}`;
+           window.recaptchaV3Key = {recaptcha_v3_key};
+           window.turnstileKey = {turnstile_key};
+           window.serverURL = '{server_url}/api/'
                </script>
                <script src="//unpkg.com/@waline/admin"></script>
              </body>
@@ -75,7 +75,7 @@ pub async fn ui_login_page(redirect: Option<String>) -> String {
       let turnstile_key = env::var("turnstileKey")
         .ok()
         .unwrap_or("undefined".to_string());
-      let server_url = env::var("serverURL").ok().unwrap_or("".to_string());
+      let server_url = env::var("SERVER_URL").ok().unwrap_or("".to_string());
       format!(
         r#"<!doctype html>
            <html>
@@ -86,11 +86,11 @@ pub async fn ui_login_page(redirect: Option<String>) -> String {
              </head>
              <body>
                <script>
-               window.SITE_URL = {site_url};
-               window.SITE_NAME = {site_name};
-               window.recaptchaV3Key = {recaptcha_v3_key};
-               window.turnstileKey = {turnstile_key};
-               window.serverURL = '{server_url}/api/';
+           window.SITE_URL = `{site_url}`;
+           window.SITE_NAME = `{site_name}`;
+           window.recaptchaV3Key = {recaptcha_v3_key};
+           window.turnstileKey = {turnstile_key};
+           window.serverURL = '{server_url}/api/'
                </script>
                <script src="//unpkg.com/@waline/admin"></script>
              </body>
@@ -109,7 +109,7 @@ pub async fn ui_migration_page() -> String {
   let turnstile_key = env::var("turnstileKey")
     .ok()
     .unwrap_or("undefined".to_string());
-  let server_url = env::var("serverURL").ok().unwrap_or("".to_string());
+  let server_url = env::var("SERVER_URL").ok().unwrap_or("".to_string());
   format!(
     r#"<!doctype html>
        <html>
@@ -120,11 +120,11 @@ pub async fn ui_migration_page() -> String {
          </head>
          <body>
            <script>
-           window.SITE_URL = {site_url};
-           window.SITE_NAME = {site_name};
+           window.SITE_URL = `{site_url}`;
+           window.SITE_NAME = `{site_name}`;
            window.recaptchaV3Key = {recaptcha_v3_key};
            window.turnstileKey = {turnstile_key};
-           window.serverURL = '{server_url}/api/';
+           window.serverURL = '{server_url}/api/'
            </script>
            <script src="//unpkg.com/@waline/admin"></script>
          </body>

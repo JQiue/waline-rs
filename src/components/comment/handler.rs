@@ -3,18 +3,23 @@ use actix_web::{
   web::{Data, Json, Path, Query},
   HttpRequest, HttpResponse,
 };
+use helpers::jwt;
 
 use crate::{
   app::AppState,
-  components::comment::{model::*, service},
-  response::Response,
+  components::{
+    comment::{model::*, service},
+    user::model::is_admin_user,
+  },
+  error::AppError,
+  helpers::header::extract_token,
+  response::{Code, Response},
 };
 
-/// get comment
 #[get("/comment")]
 async fn get_comment_info(
+  req: HttpRequest,
   state: Data<AppState>,
-  _req: HttpRequest,
   query: Query<GetCommentQuery>,
 ) -> HttpResponse {
   let Query(GetCommentQuery {
@@ -25,17 +30,59 @@ async fn get_comment_info(
     sort_by,
     r#type: _,
     owner,
-    status: _,
-    keyword: _,
-  }) = query;
-  match service::get_comment_info(&state, path, owner, page, page_size, sort_by).await {
-    Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(lang))),
-    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(lang))),
+    status,
+    keyword,
+  }) = query.clone();
+  if let Some(path) = path {
+    let fields = query.validate_by_path();
+    if fields.is_err() {
+      return HttpResponse::Ok().json(Response::<()>::error(
+        Code::Error,
+        Some(lang.unwrap_or("en".to_string())),
+      ));
+    }
+    match service::get_comment_info(&state, path, page, page_size.unwrap(), sort_by.unwrap()).await
+    {
+      Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), lang)),
+      Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, lang)),
+    }
+  } else {
+    let fields = query.validate_by_admin();
+    if fields.is_err() {
+      tracing::error!("{:?}", fields.err().unwrap());
+      return HttpResponse::Ok().json(Response::<()>::error(
+        Code::Error,
+        Some(lang.unwrap_or("en".to_string())),
+      ));
+    }
+    let token = extract_token(&req).unwrap();
+    let email = match jwt::verify::<String>(token, state.jwt_key.clone()).map_err(AppError::from) {
+      Ok(token_data) => token_data.claims.data,
+      Err(err) => return HttpResponse::Ok().json(Response::<()>::error(err.into(), lang)),
+    };
+    let is = match is_admin_user(email.clone(), &state.conn).await {
+      Ok(value) => value,
+      Err(err) => return HttpResponse::Ok().json(Response::<()>::error(err, lang)),
+    };
+    if !is {
+      return HttpResponse::Ok().json(Response::<()>::error(Code::Unauthorized, lang));
+    }
+    match service::get_comment_info_by_admin(
+      &state,
+      owner.unwrap(),
+      email,
+      keyword.unwrap(),
+      status.unwrap(),
+      page,
+    )
+    .await
+    {
+      Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), lang)),
+      Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, lang)),
+    }
   }
 }
 
-/// create comment
-/// No user is created if the user is anonymous
 #[post("/comment")]
 async fn create_comment(
   _req: HttpRequest,

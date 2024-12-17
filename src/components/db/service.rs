@@ -2,7 +2,7 @@ use crate::{
   app::AppState,
   components::user::model::{has_user, UserQueryBy},
   entities::{wl_comment, wl_counter, wl_users},
-  response::StatusCode,
+  response::Code,
 };
 use chrono::{DateTime, Utc};
 use sea_orm::{EntityTrait, Iterable, QuerySelect, Set};
@@ -61,7 +61,7 @@ pub async fn create_comment_data(
   create_at: Option<chrono::DateTime<Utc>>,
   updated_at: Option<chrono::DateTime<Utc>>,
   inserted_at: Option<chrono::DateTime<Utc>>,
-) -> Result<bool, StatusCode> {
+) -> Result<bool, Code> {
   let model = wl_comment::ActiveModel {
     comment: Set(comment),
     inserted_at: Set(inserted_at),
@@ -176,7 +176,7 @@ pub async fn update_user_data(
   two_factor_auth: Option<String>,
   created_at: Option<DateTime<Utc>>,
   updated_at: Option<DateTime<Utc>>,
-) -> Result<bool, StatusCode> {
+) -> Result<bool, Code> {
   if has_user(
     UserQueryBy::Email(email.clone().unwrap_or("".to_string())),
     &state.conn,
@@ -198,7 +198,7 @@ pub async fn update_user_data(
     };
     match wl_users::Entity::update(model).exec(&state.conn).await {
       Ok(_) => Ok(true),
-      Err(_) => Err(StatusCode::Error),
+      Err(_) => Err(Code::Error),
     }
   } else {
     let model = wl_users::ActiveModel {
@@ -215,7 +215,7 @@ pub async fn update_user_data(
     };
     match wl_users::Entity::insert(model).exec(&state.conn).await {
       Ok(_) => Ok(true),
-      Err(_) => Err(StatusCode::Error),
+      Err(_) => Err(Code::Error),
     }
   }
 }

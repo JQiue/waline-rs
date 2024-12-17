@@ -60,10 +60,7 @@ async fn get_login_user_info(req: HttpRequest, state: Data<AppState>) -> HttpRes
       Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),
     }
   } else {
-    HttpResponse::Ok().json(Response::<()>::error(
-      crate::response::StatusCode::Error,
-      None,
-    ))
+    HttpResponse::Ok().json(Response::<()>::error(crate::response::Code::Error, None))
   }
 }
 
@@ -148,7 +145,7 @@ pub async fn verification(state: Data<AppState>, query: Query<VerificationQuery>
   let Query(VerificationQuery { email, token }) = query;
   match service::verification(&state, email, token).await {
     Ok(_) => HttpResponse::Ok().json(Response::<()>::error(
-      crate::response::StatusCode::UserRegistered,
+      crate::response::Code::UserRegistered,
       None,
     )),
     Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),

@@ -10,7 +10,7 @@ use crate::{
   entities::*,
   error::AppError,
   helpers::email::extract_email_prefix,
-  response::StatusCode,
+  response::Code,
 };
 
 use super::model::get_user;
@@ -21,12 +21,12 @@ pub async fn user_register(
   email: String,
   password: String,
   url: String,
-) -> Result<Value, StatusCode> {
+) -> Result<Value, Code> {
   if has_user(UserQueryBy::Email(email.clone()), &state.conn).await? {
-    return Err(StatusCode::UserRegistered);
+    return Err(Code::UserRegistered);
   }
 
-  let hashed = helpers::hash::bcrypt(password.as_bytes()).map_err(|_| StatusCode::Error)?;
+  let hashed = helpers::hash::bcrypt(password.as_bytes()).map_err(|_| Code::Error)?;
   let mut model = wl_users::ActiveModel {
     display_name: Set(display_name),
     email: Set(email),
@@ -54,12 +54,12 @@ pub async fn user_login(
   _code: String,
   email: String,
   password: String,
-) -> Result<Value, StatusCode> {
+) -> Result<Value, Code> {
   let user = get_user(UserQueryBy::Email(email.clone()), &state.conn).await?;
   let result =
     helpers::hash::verify_bcrypt(password.as_bytes(), user.password).map_err(AppError::from)?;
   if !result {
-    return Err(StatusCode::Error);
+    return Err(Code::Error);
   }
   let avatar = if let Some(prefix) = extract_email_prefix(user.email.clone()) {
     format!("https://q1.qlogo.cn/g?b=qq&nk={}&s=100", prefix)
@@ -90,10 +90,10 @@ pub async fn user_login(
     "mailMd5": mail_md5,
     "token": token
   });
-  return Ok(data);
+  Ok(data)
 }
 
-pub async fn get_login_user_info(state: &AppState, token: String) -> Result<Value, StatusCode> {
+pub async fn get_login_user_info(state: &AppState, token: String) -> Result<Value, Code> {
   let email = helpers::jwt::verify::<String>(token, state.jwt_key.clone())
     .map_err(AppError::from)?
     .claims
@@ -131,7 +131,7 @@ pub async fn set_user_profile(
   label: Option<String>,
   url: Option<String>,
   _password: Option<String>,
-) -> Result<bool, StatusCode> {
+) -> Result<bool, Code> {
   let email = helpers::jwt::verify::<String>(token, state.jwt_key.to_string())
     .map_err(AppError::from)?
     .claims
@@ -156,10 +156,7 @@ pub async fn set_user_type(
 }
 
 /// 获取用户信息列表
-pub async fn get_user_info_list(
-  state: &AppState,
-  _page: Option<u32>,
-) -> Result<Vec<Value>, StatusCode> {
+pub async fn get_user_info_list(state: &AppState, _page: Option<u32>) -> Result<Vec<Value>, Code> {
   let users = wl_users::Entity::find()
     .select_only()
     .columns(wl_users::Column::iter().filter(|col| !matches!(col, wl_users::Column::Id)))
@@ -171,7 +168,7 @@ pub async fn get_user_info_list(
   Ok(users)
 }
 
-pub async fn get_user_info(state: &AppState, email: Option<String>) -> Result<Value, StatusCode> {
+pub async fn get_user_info(state: &AppState, email: Option<String>) -> Result<Value, Code> {
   if let Some(user) = wl_users::Entity::find()
     .filter(wl_users::Column::Email.eq(email))
     .select_only()
@@ -184,16 +181,12 @@ pub async fn get_user_info(state: &AppState, email: Option<String>) -> Result<Va
   {
     Ok(user)
   } else {
-    Err(StatusCode::UserRegistered)
+    Err(Code::UserRegistered)
   }
 }
 
 /// todo
-pub async fn verification(
-  state: &AppState,
-  email: String,
-  _token: String,
-) -> Result<bool, StatusCode> {
+pub async fn verification(state: &AppState, email: String, _token: String) -> Result<bool, Code> {
   let user = get_user(UserQueryBy::Email(email), &state.conn)
     .await
     .map_err(AppError::from);
@@ -205,7 +198,7 @@ pub async fn set_2fa(_state: &AppState, _code: String, _secret: String) -> Resul
   Err("todo".to_string())
 }
 
-pub async fn get_2fa(state: &AppState, email: Option<String>) -> Result<Value, StatusCode> {
+pub async fn get_2fa(state: &AppState, email: Option<String>) -> Result<Value, Code> {
   match email {
     Some(email) => {
       let res = wl_users::Entity::find()
@@ -224,6 +217,6 @@ pub async fn get_2fa(state: &AppState, email: Option<String>) -> Result<Value, S
         })),
       }
     }
-    None => Err(StatusCode::Error),
+    None => Err(Code::Error),
   }
 }

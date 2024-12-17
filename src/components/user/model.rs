@@ -2,7 +2,7 @@ use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use serde::Deserialize;
 
 use crate::error::AppError;
-use crate::{entities::wl_users, response::StatusCode};
+use crate::{entities::wl_users, response::Code};
 
 #[derive(Deserialize)]
 pub struct UserRegisterQuery {
@@ -57,12 +57,22 @@ pub struct Get2faQuery {
   pub email: Option<String>,
 }
 
-pub async fn is_first_user(conn: &DatabaseConnection) -> Result<bool, StatusCode> {
+pub async fn is_first_user(conn: &DatabaseConnection) -> Result<bool, Code> {
   let users = wl_users::Entity::find()
     .all(conn)
     .await
     .map_err(AppError::from)?;
   Ok(users.is_empty())
+}
+
+pub async fn is_admin_user(email: String, conn: &DatabaseConnection) -> Result<bool, Code> {
+  let user = wl_users::Entity::find()
+    .filter(wl_users::Column::Email.eq(email))
+    .filter(wl_users::Column::Type.eq("administrator"))
+    .one(conn)
+    .await
+    .map_err(AppError::from)?;
+  Ok(user.is_some())
 }
 
 #[derive(Debug, Clone)]

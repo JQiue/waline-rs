@@ -10,7 +10,6 @@ use crate::{
 #[derive(Clone)]
 pub enum CommentQueryBy {
   Id(u32),
-  Email(String),
 }
 
 pub async fn has_comment(
@@ -20,7 +19,6 @@ pub async fn has_comment(
   let mut query = wl_comment::Entity::find();
   match query_by {
     CommentQueryBy::Id(id) => query = query.filter(wl_comment::Column::Id.eq(id)),
-    CommentQueryBy::Email(email) => query = query.filter(wl_comment::Column::Mail.eq(email)),
   }
   let res = query.one(conn).await.map_err(AppError::from)?;
   Ok(res.is_some())
@@ -36,7 +34,6 @@ pub async fn get_comment(
   let mut query = wl_comment::Entity::find();
   match query_by {
     CommentQueryBy::Id(id) => query = query.filter(wl_comment::Column::Id.eq(id)),
-    CommentQueryBy::Email(email) => query = query.filter(wl_comment::Column::Mail.eq(email)),
   }
   query
     .one(conn)
@@ -91,6 +88,7 @@ pub struct DataEntry {
   pub object_id: u32,
   pub ip: Option<String>,
   pub orig: Option<String>,
+  pub url: Option<String>,
   pub pid: Option<i32>,
   pub rid: Option<i32>,
   pub time: i64,
@@ -112,7 +110,8 @@ pub fn build_data_entry(comment: wl_comment::Model, anonymous_avatar: String) ->
     user_id: comment.user_id,
     browser,
     os,
-    r#type: None, // TODO: 获取用户类型
+    url: comment.url,
+    r#type: None,
     object_id: comment.id,
     ip: comment.ip,
     orig: comment.comment.clone(),
@@ -134,19 +133,63 @@ pub fn build_data_entry(comment: wl_comment::Model, anonymous_avatar: String) ->
   }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct GetCommentQuery {
-  pub lang: String,
-  pub path: String,
+  pub lang: Option<String>,
+  pub path: Option<String>,
   #[serde(rename = "pageSize")]
-  pub page_size: i32,
+  pub page_size: Option<i32>,
   pub page: i32,
   #[serde(rename = "sortBy")]
-  pub sort_by: String,
+  pub sort_by: Option<String>,
   pub r#type: Option<String>,
   pub owner: Option<String>,
   pub status: Option<String>,
   pub keyword: Option<String>,
+}
+
+impl GetCommentQuery {
+  pub fn validate_by_path(&self) -> Result<(), Vec<&'static str>> {
+    let mut missing_fields = Vec::new();
+    // 检查 Option 字段
+    if self.path.is_none() {
+      missing_fields.push("path");
+    }
+    if self.page_size.is_none() {
+      missing_fields.push("pageSize");
+    }
+    if self.sort_by.is_none() {
+      missing_fields.push("sortBy");
+    }
+    if missing_fields.is_empty() {
+      Ok(())
+    } else {
+      Err(missing_fields)
+    }
+  }
+  pub fn validate_by_admin(&self) -> Result<(), Vec<&'static str>> {
+    let mut missing_fields = Vec::new();
+    if self.lang.is_none() {
+      missing_fields.push("lang");
+    }
+    if self.r#type.is_none() {
+      missing_fields.push("type");
+    }
+    if self.owner.is_none() {
+      missing_fields.push("owner");
+    }
+    if self.status.is_none() {
+      missing_fields.push("status");
+    }
+    if self.keyword.is_none() {
+      missing_fields.push("keyword");
+    }
+    if missing_fields.is_empty() {
+      Ok(())
+    } else {
+      Err(missing_fields)
+    }
+  }
 }
 
 pub fn create_comment_model(
