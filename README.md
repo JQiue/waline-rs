@@ -47,7 +47,7 @@ Configure waline-mini with environment variables:
 
 ## Features
 
-| Feature                | availability     | Status      |
+| Feature                | Availability     | Status      |
 | ---------------------- | ---------------- | ----------- |
 | Pageview Counter       | Fully Available  | Stable      |
 | Article Reactions      | Fully Available  | Stable      |
