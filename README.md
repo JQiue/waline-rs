@@ -10,9 +10,7 @@ Although the functionality is not yet complete, the goal of waline-mini is not t
 
 In my Ubuntu server, the waline-mini requires only about `5612Kb=5.48MB` of memory
 
-![mem](./images//image.png)
-
-## Features
+![mem](./assets/image.png)
 
 + Extremely low memory usage: Uses only 1/10 of the memory compared to the Node.js version.
 + Fast response: Built with Rust, known for its excellent performance and low-level efficiency.
@@ -22,6 +20,17 @@ In my Ubuntu server, the waline-mini requires only about `5612Kb=5.48MB` of memo
 ## Usage
 
 From [GitHub Releases](https://github.com/JQiue/waline-mini/releases) to download the binary file is appropriate for your platform.
+
+```bash
+# Setting environment variables
+export HOST=127.0.0.1
+export PORT=8360
+export DATABASE_URL=sqlite:///path/to/waline.sqlite
+export JWT_KEY=your_secret_key
+
+# Start
+./waline-mini
+```
 
 Configure waline-mini with environment variables:
 
@@ -36,24 +45,17 @@ Configure waline-mini with environment variables:
 | SERVER_URL           | Custom Waline server address                                                         |         | auto    |
 | WORKERS              | Worker thread count                                                                  |         | 1       |
 
-```bash
-# Setting environment variables
-export HOST=127.0.0.1
-export PORT=8360
-export DATABASE_URL=sqlite:///path/to/waline.sqlite
-export JWT_KEY=your_secret_key
+## Features
 
-# Start
-./waline-mini
-```
-
-## Known Issues
-
-+ Mail notification not implemented. (Working)
-+ Content moderation not implemented. (Working)
-+ Anti-spam comment service not implemented. (Working)
-+ The comment Posting frequency limit is not implemented. (Working)
-+ ...
+| Feature                | availability     | Status      |
+| ---------------------- | ---------------- | ----------- |
+| Pageview Counter       | Fully Available  | Stable      |
+| Article Reactions      | Fully Available  | Stable      |
+| Comment Format Support | Fully Available  | Stable      |
+| User label             | Nearly Available | In Progress |
+| I18n Support           | Nearly Available | In Progress |
+| Comment Notification   | Not Available    | In Progress |
+| Security               | Not Available    | In Progress |
 
 ## References
 
