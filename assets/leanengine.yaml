@@ -1,0 +1,3 @@
+runtime: cpp
+build: chmod +x ./waline-mini
+run: ./waline-mini
