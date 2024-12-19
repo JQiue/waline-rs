@@ -94,12 +94,46 @@ pub struct DataEntry {
   pub time: i64,
   pub comment: Option<String>,
   pub avatar: String,
-  pub level: i32,
+  pub level: Option<usize>,
   pub label: Option<String>,
   pub children: Vec<DataEntry>,
 }
 
-pub fn build_data_entry(comment: wl_comment::Model, anonymous_avatar: String) -> DataEntry {
+fn is_strictly_increasing(nums: &[usize]) -> bool {
+  nums.windows(2).all(|w| w[0] < w[1])
+}
+
+fn get_thresholds(levels: &str) -> Vec<usize> {
+  let mut thresholds = vec![];
+  for s in levels.split(',') {
+    if s.chars().all(|c| c.is_ascii_digit()) {
+      thresholds.push(s.parse().unwrap());
+    } else {
+      return vec![0, 10, 20, 50, 100, 200];
+    }
+  }
+  if !is_strictly_increasing(&thresholds) {
+    return vec![0, 10, 20, 50, 100, 200];
+  }
+  tracing::debug!("{:?}", thresholds);
+  return thresholds;
+}
+
+pub fn get_level(count: usize, levels: &str) -> usize {
+  let thresholds = get_thresholds(levels);
+  for (index, &threshold) in thresholds.iter().enumerate() {
+    if count < threshold {
+      return index - 1;
+    }
+  }
+  return 0;
+}
+
+pub fn build_data_entry(
+  comment: wl_comment::Model,
+  anonymous_avatar: String,
+  level: Option<usize>,
+) -> DataEntry {
   let (browser, os) = ua::parse(comment.ua.unwrap_or("".to_owned()));
   DataEntry {
     status: comment.status,
@@ -127,7 +161,7 @@ pub fn build_data_entry(comment: wl_comment::Model, anonymous_avatar: String) ->
     } else {
       anonymous_avatar
     },
-    level: 0,
+    level,
     label: None,
     children: vec![],
   }
