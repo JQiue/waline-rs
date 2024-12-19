@@ -101,6 +101,9 @@ pub struct DataEntry {
 
 pub fn build_data_entry(comment: wl_comment::Model, anonymous_avatar: String) -> DataEntry {
   let (browser, os) = ua::parse(comment.ua.unwrap_or("".to_owned()));
+  let safe_html = Some(ammonia::clean(&render_md_to_html(
+    &comment.comment.clone().unwrap_or("".to_owned()),
+  )));
   DataEntry {
     status: comment.status,
     like: comment.like,
@@ -118,7 +121,7 @@ pub fn build_data_entry(comment: wl_comment::Model, anonymous_avatar: String) ->
     time: comment.created_at.unwrap().timestamp_millis(),
     pid: comment.pid,
     rid: comment.rid,
-    comment: Some(render_md_to_html(&comment.comment.unwrap_or("".to_owned()))),
+    comment: safe_html,
     avatar: if comment.user_id.is_some() {
       format!(
         "https://q1.qlogo.cn/g?b=qq&nk={}&s=100",
