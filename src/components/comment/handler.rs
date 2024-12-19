@@ -108,17 +108,15 @@ async fn create_comment(
   }
 }
 
-/// delete comment
 #[delete("/comment/{id}")]
 pub async fn delete_comment(state: Data<AppState>, path: Path<u32>) -> HttpResponse {
   let id = path.into_inner();
   match service::delete_comment(&state, id).await {
-    Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), None)),
+    Ok(_) => HttpResponse::Ok().json(Response::success(Some(""), None)),
     Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),
   }
 }
 
-/// update comment
 #[put("/comment/{id}")]
 async fn update_comment(
   state: Data<AppState>,
