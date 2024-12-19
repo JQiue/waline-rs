@@ -12,7 +12,11 @@ use crate::{
   },
   entities::wl_comment,
   error::AppError,
-  helpers::{email::extract_email_prefix, markdown::render_md_to_html, ua},
+  helpers::{
+    email::{extract_email_prefix, send_site_message, CommentNotification, NotifyType},
+    markdown::render_md_to_html,
+    ua,
+  },
   response::Code,
 };
 
@@ -210,6 +214,14 @@ pub async fn create_comment(
   if let Some(rid) = rid {
     data["rid"] = json!(rid);
   };
+  send_site_message(CommentNotification {
+    sender_name: comment.nick.unwrap(),
+    sender_email: comment.mail.unwrap(),
+    comment_id: comment.id,
+    comment: comment.comment.unwrap(),
+    url: comment.url.unwrap(),
+    notify_type: NotifyType::NewComment,
+  });
   Ok(data)
 }
 

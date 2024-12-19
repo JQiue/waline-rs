@@ -14,6 +14,8 @@ fn zh_cn() -> TranslationMap {
   m.insert("TWO_FACTOR_AUTH_ERROR_DETAIL", "二步验证失败");
   m.insert("Duplicate Content", "发送的内容之前已经发过");
   m.insert("Unauthorized", "Unauthorized");
+  m.insert("MAIL_SUBJECT_ADMIN", "{{site.name | safe}} 上有新评论了");
+  m.insert("MAIL_TEMPLATE_ADMIN", "<div style='border-top:2px solid #12ADDB;box-shadow:0 1px 3px #AAAAAA;line-height:180%;padding:0 15px 12px;margin:50px auto;font-size:12px;'> <h2 style='border-bottom:1px solid #DDD;font-size:14px;font-weight:normal;padding:13px 0 10px 8px;'> 您在<a style='text-decoration:none;color: #12ADDB;' href='{{site.url}}' target='_blank'>{{site.name}}</a>上的文章有了新的评论 </h2> <p><strong>{{self.nick}}</strong>回复说：</p><div style='background-color: #f5f5f5;padding: 10px 15px;margin:18px 0;word-wrap:break-word;'>{{self.comment | safe}}</div><p>您可以点击<a style='text-decoration:none; color:#12addb' href='{{site.postUrl}}' target='_blank'>查看回复的完整內容</a></p><br/> </div>");
   m
 }
 
@@ -27,6 +29,8 @@ fn zh_tw() -> TranslationMap {
   m.insert("TWO_FACTOR_AUTH_ERROR_DETAIL", "二步驗證失敗");
   m.insert("Duplicate Content", "發送的內容之前已經發過");
   m.insert("Unauthorized", "Unauthorized");
+  m.insert("MAIL_SUBJECT_ADMIN", "{{site.name | safe}} 上有新評論了");
+  m.insert("MAIL_TEMPLATE_ADMIN", "<div style='border-top:2px solid #12ADDB;box-shadow:0 1px 3px #AAAAAA;line-height:180%;padding:0 15px 12px;margin:50px auto;font-size:12px;'> <h2 style='border-bottom:1px solid #DDD;font-size:14px;font-weight:normal;padding:13px 0 10px 8px;'> 您在<a style='text-decoration:none;color: #12ADDB;' href='{{site.url}}' target='_blank'>{{site.name}}</a>上的文章有新評論了 </h2> <p><strong>{{self.nick}}</strong>回復說：</p><div style='background-color: #f5f5f5;padding: 10px 15px;margin:18px 0;word-wrap:break-word;'>{{self.comment | safe}}</div><p>您可以點擊<a style='text-decoration:none; color:#12addb' href='{{site.postUrl}}' target='_blank'>查看回復的完整內容</a></p><br/> </div>");
   m
 }
 
@@ -46,6 +50,8 @@ fn en() -> TranslationMap {
   );
   m.insert("Duplicate Content", "Duplicate Content");
   m.insert("Unauthorized", "Unauthorized");
+  m.insert("MAIL_SUBJECT_ADMIN", "New comment on {{site.name | safe}}");
+  m.insert("MAIL_TEMPLATE_ADMIN", "<div style='border-top:2px solid #12ADDB;box-shadow:0 1px 3px #AAAAAA;line-height:180%;padding:0 15px 12px;margin:50px auto;font-size:12px;'> <h2 style='border-bottom:1px solid #DDD;font-size:14px;font-weight:normal;padding:13px 0 10px 8px;'> New comment on <a style='text-decoration:none;color: #12ADDB;' href='{{site.url}}' target='_blank'>{{site.name}}</a> </h2> <p><strong>{{self.nick}}</strong> wrote:</p><div style='background-color: #f5f5f5;padding: 10px 15px;margin:18px 0;word-wrap:break-word;'>{{self.comment | safe}}</div><p><a style='text-decoration:none; color:#12addb' href='{{site.postUrl}}' target='_blank'>View page</a></p><br/></div>");
   m
 }
 
