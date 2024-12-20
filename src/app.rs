@@ -22,6 +22,7 @@ pub struct AppState {
   pub conn: DatabaseConnection,
   pub anonymous_avatar: Arc<String>,
   pub jwt_key: String,
+  pub levels: Option<String>,
 }
 
 async fn health_check() -> HttpResponse {
@@ -50,6 +51,7 @@ pub async fn start() -> Result<(), AppError> {
     anonymous_avatar: "https://seccdn.libravatar.org/avatar/d41d8cd98f00b204e9800998ecf8427e"
       .to_string()
       .into(),
+    levels: app_config.levels,
   };
   HttpServer::new(move || {
     App::new()

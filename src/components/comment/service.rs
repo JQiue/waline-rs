@@ -53,11 +53,26 @@ pub async fn get_comment_info(
     .await
     .map_err(AppError::from)?;
   // Get comment count for articles
-  let mut count = parrent_comments.len();
-  let mut comments: Vec<DataEntry> = vec![];
+  let mut count = paginator.num_items().await.map_err(AppError::from)?;
+  let mut data = vec![];
   for parrent_comment in parrent_comments {
-    let mut parrent_data_entry =
-      build_data_entry(parrent_comment.clone(), state.anonymous_avatar.to_string());
+    let c = wl_comment::Entity::find()
+      .filter(wl_comment::Column::Nick.eq(parrent_comment.clone().nick))
+      .filter(wl_comment::Column::Mail.eq(parrent_comment.clone().mail))
+      .count(&state.conn)
+      .await
+      .map_err(AppError::from)?;
+    let level;
+    if let Some(levels) = &state.levels {
+      level = Some(get_level(c as usize, &levels));
+    } else {
+      level = None;
+    }
+    let mut parrent_data_entry = build_data_entry(
+      parrent_comment.clone(),
+      state.anonymous_avatar.to_string(),
+      level,
+    );
     if let Some(user_id) = parrent_data_entry.user_id {
       let user = get_user(UserQueryBy::Id(user_id as u32), &state.conn).await?;
       parrent_data_entry.label = user.label;
@@ -70,10 +85,27 @@ pub async fn get_comment_info(
       .all(&state.conn)
       .await
       .map_err(AppError::from)?;
+    count += subcomments.len() as u64;
     for subcomment in subcomments {
-      count += 1;
-      let mut subcomment_data_entry =
-        build_data_entry(subcomment.clone(), state.anonymous_avatar.to_string());
+      let c = wl_comment::Entity::find()
+        .filter(wl_comment::Column::Url.eq(parrent_comment.clone().url))
+        .filter(wl_comment::Column::Nick.eq(parrent_comment.clone().nick))
+        .filter(wl_comment::Column::Mail.eq(parrent_comment.clone().mail))
+        .count(&state.conn)
+        .await
+        .map_err(AppError::from)?;
+      let level;
+      if let Some(levels) = &state.levels {
+        level = Some(get_level(c as usize, &levels));
+      } else {
+        level = None;
+      }
+
+      let mut subcomment_data_entry = build_data_entry(
+        subcomment.clone(),
+        state.anonymous_avatar.to_string(),
+        level,
+      );
       if let Some(user_id) = subcomment_data_entry.user_id {
         let user = get_user(UserQueryBy::Id(user_id as u32), &state.conn).await?;
         subcomment_data_entry.label = user.label;
@@ -81,11 +113,11 @@ pub async fn get_comment_info(
       }
       parrent_data_entry.children.push(subcomment_data_entry)
     }
-    comments.push(parrent_data_entry)
+    data.push(parrent_data_entry)
   }
   Ok(json!({
     "count": count,
-    "data": comments,
+    "data": data,
     "page": page,
     "pageSize": page_size,
     "totalPages": total_pages
@@ -126,7 +158,8 @@ pub async fn get_comment_info_by_admin(
   }
   let mut data = vec![];
   for comment in comments.iter() {
-    let mut data_entry = build_data_entry(comment.clone(), state.anonymous_avatar.to_string());
+    let mut data_entry =
+      build_data_entry(comment.clone(), state.anonymous_avatar.to_string(), None);
     if let Some(user_id) = data_entry.user_id {
       let user = get_user(UserQueryBy::Id(user_id as u32), &state.conn)
         .await
