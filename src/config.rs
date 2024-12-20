@@ -16,6 +16,14 @@ pub struct Config {
   pub port: u16,
   pub database_url: String,
   pub jwt_key: String,
+  pub site_name: String,
+  pub site_url: String,
+  pub smtp_service: Option<String>,
+  pub smtp_host: Option<String>,
+  pub smtp_port: Option<u16>,
+  pub smtp_user: Option<String>,
+  pub smtp_pass: Option<String>,
+  pub author_email: Option<String>,
   pub levels: Option<String>,
 }
 

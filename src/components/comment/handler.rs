@@ -102,7 +102,21 @@ async fn create_comment(
     rid,
     at,
   }) = body;
-  match service::create_comment(&state, comment, link, mail, nick, ua, url, pid, rid, at).await {
+  match service::create_comment(
+    &state,
+    comment,
+    link,
+    mail,
+    nick,
+    ua,
+    url,
+    pid,
+    rid,
+    at,
+    Some(lang.clone()),
+  )
+  .await
+  {
     Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(lang))),
     Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(lang))),
   }
