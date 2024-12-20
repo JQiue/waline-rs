@@ -2,14 +2,49 @@ use lettre::{
   message::header::ContentType, transport::smtp::authentication::Credentials, Message,
   SmtpTransport, Transport,
 };
-use tracing_subscriber::fmt::format;
+use strfmt::strfmt;
 
-use crate::config::Config;
+use crate::{config::Config, locales::get_translation};
 
 /// Get the mail address prefix
 pub fn extract_email_prefix(email: String) -> Option<String> {
   let mut res = email.split('@');
   res.next().map(|prefix| prefix.to_string())
+}
+
+struct SmtpConfig {
+  host: &'static str,
+  port: u16,
+}
+
+enum SmtpService {
+  Gmail,
+  NetEase126,
+  NetEase163,
+  QQ,
+}
+
+impl SmtpService {
+  fn config(&self) -> SmtpConfig {
+    match self {
+      &SmtpService::QQ => SmtpConfig {
+        host: "smtp.qq.com",
+        port: 465,
+      },
+      SmtpService::Gmail => SmtpConfig {
+        host: "smtp.gmail.com",
+        port: 587,
+      },
+      SmtpService::NetEase126 => SmtpConfig {
+        host: "smtp.126.com",
+        port: 25,
+      },
+      SmtpService::NetEase163 => SmtpConfig {
+        host: "smtp.163.com",
+        port: 25,
+      },
+    }
+  }
 }
 
 pub struct CommentNotification {
@@ -19,6 +54,7 @@ pub struct CommentNotification {
   pub comment: String,
   pub url: String,
   pub notify_type: NotifyType,
+  pub lang: Option<String>,
 }
 
 pub enum NotifyType {
@@ -26,46 +62,92 @@ pub enum NotifyType {
   ReplyComment,
 }
 
-pub fn send_email_notification(notification: CommentNotification) {}
-
-pub fn send_site_message(notification: CommentNotification) {
+pub fn send_email_notification(notification: CommentNotification) {
   let app_config = Config::from_env().unwrap();
+  let subject;
+  let body;
+  let post_url = format!(
+    "{}{}#{}",
+    app_config.site_url, notification.url, notification.comment_id
+  );
   match notification.notify_type {
     NotifyType::NewComment => {
-      let post_url = format!(
-        "{}{}#{}",
-        app_config.site_url, notification.url, notification.comment_id
+      let subject_template = get_translation(
+        &notification.lang.clone().unwrap_or("en".to_owned()),
+        "MAIL_SUBJECT_ADMIN",
       );
-      let subject = format!("{} 上有新评论了", app_config.site_name);
-      let body = format!("<div style='border-top:2px solid #12ADDB;box-shadow:0 1px 3px #AAAAAA;line-height:180%;padding:0 15px 12px;margin:50px auto;font-size:12px;'>
-       <h2 style='border-bottom:1px solid #DDD;font-size:14px;font-weight:normal;padding:13px 0 10px 8px;'> 您在<a style='text-decoration:none;color: #12ADDB;' href='{}' target='_blank'>{}</a>上的文章有了新的评论 </h2> <p><strong>{}</strong>回复说：</p><div style='background-color: #f5f5f5;padding: 10px 15px;margin:18px 0;word-wrap:break-word;'>{}</div><p>您可以点击<a style='text-decoration:none; color:#12addb' href='{}' target='_blank'>查看回复的完整內容</a></p><br/> </div>", app_config.site_url, app_config.site_name, notification.sender_name, notification.comment, post_url);
-      message(app_config.author_email, subject, body);
+      let body_template = get_translation(
+        &notification.lang.unwrap_or("en".to_owned()),
+        "MAIL_TEMPLATE_ADMIN",
+      );
+      subject = strfmt!(&subject_template, site_name => app_config.site_name.clone()).unwrap();
+      body =
+        strfmt!(&body_template, site_url=> app_config.site_url, site_name=>app_config.site_name, nick=>notification.sender_name, comment=>notification.comment, post_url=>post_url)
+          .unwrap();
     }
-    NotifyType::ReplyComment => {}
+    NotifyType::ReplyComment => {
+      subject = "".to_owned();
+      body = "".to_owned();
+    }
   }
+  if app_config.author_email.is_none() {
+    return;
+  }
+  email(app_config.author_email.unwrap(), subject, body);
 }
 
-pub fn message(reply_to: String, subject: String, body: String) {
+pub fn email(reply_to: String, subject: String, body: String) {
   let app_config = Config::from_env().unwrap();
+  let host;
+  let port;
+  if app_config.smtp_user.is_none() || app_config.smtp_pass.is_none() {
+    return;
+  }
+  if app_config.smtp_host.is_some() || app_config.smtp_port.is_some() {
+    host = app_config.smtp_host.unwrap();
+    port = app_config.smtp_port.unwrap();
+  } else if app_config.smtp_service.is_some() {
+    let smtp_service = match app_config.smtp_service.unwrap().as_str() {
+      "QQ" => SmtpService::QQ,
+      "Gmail" => SmtpService::Gmail,
+      "126" => SmtpService::NetEase126,
+      "163" => SmtpService::NetEase163,
+      _ => {
+        tracing::error!("Unsupported SMTP service");
+        return;
+      }
+    };
+    host = smtp_service.config().host.to_owned();
+    port = smtp_service.config().port;
+  } else {
+    return;
+  }
   let email = Message::builder()
     .from(
-      format!("{} <{}>", app_config.site_name, app_config.smtp_user)
-        .parse()
-        .unwrap(),
+      format!(
+        "{} <{}>",
+        app_config.site_name,
+        app_config.smtp_user.clone().unwrap()
+      )
+      .parse()
+      .unwrap(),
     )
     .reply_to(reply_to.parse().unwrap())
-    .to(app_config.smtp_user.parse().unwrap())
+    .to(app_config.smtp_user.clone().unwrap().parse().unwrap())
     .subject(subject)
     .header(ContentType::TEXT_HTML)
     .body(body)
     .unwrap();
-  let creds = Credentials::new(app_config.smtp_user, app_config.smtp_pass);
-  let mailer = SmtpTransport::relay("smtp.qq.com")
+  let mailer = SmtpTransport::relay(&host)
     .unwrap()
-    .credentials(creds)
+    .credentials(Credentials::new(
+      app_config.smtp_user.unwrap(),
+      app_config.smtp_pass.unwrap(),
+    ))
+    .port(port)
     .build();
   match mailer.send(&email) {
     Ok(v) => println!("{:#?}", v),
-    Err(e) => panic!("Could not send email: {e:?}"),
+    Err(e) => tracing::error!("Could not send email: {e:?}"),
   }
 }

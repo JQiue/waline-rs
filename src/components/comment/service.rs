@@ -13,7 +13,7 @@ use crate::{
   entities::wl_comment,
   error::AppError,
   helpers::{
-    email::{extract_email_prefix, send_site_message, CommentNotification, NotifyType},
+    email::{extract_email_prefix, send_email_notification, CommentNotification, NotifyType},
     markdown::render_md_to_html,
     ua,
   },
@@ -160,6 +160,7 @@ pub async fn create_comment(
   pid: Option<i32>,
   rid: Option<i32>,
   _at: Option<String>,
+  lang: Option<String>,
 ) -> Result<Value, Code> {
   let html_output = render_md_to_html(&comment);
   let mut avatar = state.anonymous_avatar.to_string();
@@ -214,13 +215,14 @@ pub async fn create_comment(
   if let Some(rid) = rid {
     data["rid"] = json!(rid);
   };
-  send_site_message(CommentNotification {
+  send_email_notification(CommentNotification {
     sender_name: comment.nick.unwrap(),
     sender_email: comment.mail.unwrap(),
     comment_id: comment.id,
     comment: comment.comment.unwrap(),
     url: comment.url.unwrap(),
     notify_type: NotifyType::NewComment,
+    lang,
   });
   Ok(data)
 }
