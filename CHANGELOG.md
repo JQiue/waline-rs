@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2024-12-20
+
+### 🚀 Features
+
+- Refactor comment and user error handling
+- Impl site notifications when a new comment is added
+- Localization of in-station notifications
+- Add custom user grade levels support
+- Add Ammonia HTML sanitizer to prevent XSS
+
+### ⚙️ Miscellaneous Tasks
+
+- Update READEME.md
+- Update README.md
+- Commit LeanCloud deployment
+- Update README.md
+- Update README.md
+- Update Cargo.lock
+- Update READEME.md
+- Release walini-mini version v0.5.0
+
 ## [0.4.2] - 2024-12-11
 
 ### 🐛 Bug Fixes
@@ -9,6 +30,10 @@ All notable changes to this project will be documented in this file.
 - Fixed counter time can't update
 - Fixed can't create momment error
 - Fixed can't set user profile error
+
+### ⚙️ Miscellaneous Tasks
+
+- Release waline-mini version 0.4.2
 
 ## [0.4.1] - 2024-12-10
 
