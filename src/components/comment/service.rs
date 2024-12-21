@@ -1,4 +1,4 @@
-use helpers::time::utc_now;
+use helpers::{jwt, time::utc_now};
 use sea_orm::{
   ActiveModelTrait, ColumnTrait, EntityTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, Set,
 };
@@ -8,8 +8,9 @@ use crate::{
   app::AppState,
   components::{
     comment::model::*,
-    user::model::{get_user, UserQueryBy},
+    user::model::{get_user, is_admin_user, UserQueryBy},
   },
+  config::Config,
   entities::wl_comment,
   error::AppError,
   helpers::{
@@ -26,6 +27,7 @@ pub async fn get_comment_info(
   page: i32,
   page_size: i32,
   sort_by: String,
+  token: Result<String, AppError>,
 ) -> Result<Value, Code> {
   let sort_col;
   let sort_ord;
@@ -42,9 +44,25 @@ pub async fn get_comment_info(
     sort_col = wl_comment::Column::InsertedAt;
     sort_ord = Order::Desc;
   }
-  let paginator = wl_comment::Entity::find()
+  let mut select = wl_comment::Entity::find()
     .filter(wl_comment::Column::Url.contains(path.clone()))
     .filter(wl_comment::Column::Pid.is_null())
+    .filter(wl_comment::Column::Status.is_not_in(["waiting", "spam"]));
+  if token.is_ok() {
+    let token = token.unwrap();
+    if jwt::verify::<String>(token.clone(), state.clone().jwt_key).is_ok() {
+      let email = jwt::verify::<String>(token, state.clone().jwt_key)
+        .unwrap()
+        .claims
+        .data;
+      if is_admin_user(email, &state.conn).await.unwrap() {
+        select = wl_comment::Entity::find()
+          .filter(wl_comment::Column::Url.contains(path.clone()))
+          .filter(wl_comment::Column::Pid.is_null())
+      }
+    }
+  }
+  let paginator = select
     .order_by(sort_col, sort_ord)
     .paginate(&state.conn, page_size as u64);
   let total_pages = paginator.num_pages().await.map_err(AppError::from)?;
@@ -81,6 +99,7 @@ pub async fn get_comment_info(
     let subcomments = wl_comment::Entity::find()
       .filter(wl_comment::Column::Url.contains(path.clone()))
       .filter(wl_comment::Column::Pid.eq(parrent_comment.id))
+      .filter(wl_comment::Column::Status.is_not_in(["waiting", "spam"]))
       .order_by(wl_comment::Column::InsertedAt, Order::Asc)
       .all(&state.conn)
       .await
@@ -216,6 +235,7 @@ pub async fn create_comment(
     "comment": html_output,
   });
   let user = get_user(UserQueryBy::Email(email.clone()), &state.conn).await;
+  let mut is_admin = false;
   if let Ok(user) = user {
     new_comment.user_id = Set(Some(user.id as i32));
     data["label"] = json!(user.label);
@@ -227,6 +247,18 @@ pub async fn create_comment(
     } else {
       state.anonymous_avatar.to_string()
     };
+    if user.r#type == "administrator" {
+      is_admin = true;
+    }
+  }
+  let app_config = Config::from_env().unwrap();
+  if app_config.comment_audit.is_some() {
+    if app_config.comment_audit.unwrap() {
+      new_comment.status = Set("waiting".to_string());
+    }
+  }
+  if is_admin {
+    new_comment.status = Set("approved".to_string());
   }
   let comment = new_comment
     .insert(&state.conn)
