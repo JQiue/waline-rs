@@ -26,6 +26,7 @@ pub struct Config {
   pub author_email: Option<String>,
   pub levels: Option<String>,
   pub ipqps: Option<u64>,
+  pub comment_audit: Option<bool>,
 }
 
 impl Config {

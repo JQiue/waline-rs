@@ -42,7 +42,16 @@ async fn get_comment_info(
         Some(lang.unwrap_or("en".to_string())),
       ));
     }
-    match service::get_comment_info(&state, path, page, page_size.unwrap(), sort_by.unwrap()).await
+    let token = extract_token(&req);
+    match service::get_comment_info(
+      &state,
+      path,
+      page,
+      page_size.unwrap(),
+      sort_by.unwrap(),
+      token,
+    )
+    .await
     {
       Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), lang)),
       Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, lang)),
