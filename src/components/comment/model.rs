@@ -53,24 +53,23 @@ pub async fn is_anonymous(comment_id: u32, conn: &DatabaseConnection) -> Result<
 }
 
 pub async fn is_duplicate(
-  comment_id: u32,
-  url: String,
-  mail: String,
-  nick: String,
-  link: String,
-  comment: String,
+  url: &String,
+  mail: &String,
+  nick: &String,
+  link: &String,
+  comment: &String,
   conn: &DatabaseConnection,
 ) -> Result<bool, AppError> {
-  let res = wl_comment::Entity::find_by_id(comment_id)
+  let res = wl_comment::Entity::find()
     .filter(wl_comment::Column::Url.eq(url))
-    .filter(wl_comment::Column::Mail.ne(mail))
-    .filter(wl_comment::Column::Nick.ne(nick))
-    .filter(wl_comment::Column::Link.ne(link))
-    .filter(wl_comment::Column::Comment.ne(comment))
-    .one(conn)
+    .filter(wl_comment::Column::Mail.eq(mail))
+    .filter(wl_comment::Column::Nick.eq(nick))
+    .filter(wl_comment::Column::Link.eq(link))
+    .filter(wl_comment::Column::Comment.eq(comment))
+    .all(conn)
     .await
     .map_err(AppError::from)?;
-  Ok(res.is_some())
+  Ok(res.len() > 0)
 }
 
 #[derive(Serialize, Debug)]
