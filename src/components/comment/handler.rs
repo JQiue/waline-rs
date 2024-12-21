@@ -112,12 +112,8 @@ async fn create_comment(
     rid,
     at,
   }) = body;
-  let limiter = &state.rate_limiter;
-  let client_ip = req
-    .peer_addr()
-    .map(|s| s.ip().to_string())
-    .unwrap_or_default();
   let app_config = Config::from_env().unwrap();
+  let mut is_admin = false;
   let pass = if let Ok(token) = extract_token(&req) {
     if jwt::verify::<String>(token.clone(), state.jwt_key.clone()).is_err() {
       false
@@ -132,16 +128,30 @@ async fn create_comment(
       .await
       .unwrap()
       {
+        is_admin = true;
         true
       } else {
         false
       }
     }
   } else {
-    limiter.check_and_update(&client_ip, app_config.ipqps.unwrap_or(60), 1)
+    let client_ip = req
+      .peer_addr()
+      .map(|s| s.ip().to_string())
+      .unwrap_or_default();
+    state
+      .rate_limiter
+      .check_and_update(&client_ip, app_config.ipqps.unwrap_or(60), 1)
   };
   if !pass {
     return HttpResponse::Ok().json(Response::<()>::error(Code::FrequencyLimited, Some(lang)));
+  }
+  if is_duplicate(&url, &mail, &nick, &link, &comment, &state.conn)
+    .await
+    .unwrap()
+    && !is_admin
+  {
+    return HttpResponse::Ok().json(Response::<()>::error(Code::DuplicateContent, Some(lang)));
   }
   match service::create_comment(
     &state,
