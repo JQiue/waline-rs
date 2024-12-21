@@ -1,5 +1,9 @@
 //! app
-use std::sync::Arc;
+use std::{
+  collections::HashMap,
+  sync::{Arc, Mutex},
+  time::{Duration, Instant},
+};
 
 use crate::{
   components::{
@@ -17,8 +21,42 @@ use actix_web::{
 };
 use sea_orm::{Database, DatabaseConnection};
 
+// 定义全局计数器
+#[derive(Debug)]
+pub struct RateLimiter {
+  counter: Mutex<HashMap<String, (usize, Instant)>>,
+}
+
+impl RateLimiter {
+  fn new() -> Self {
+    RateLimiter {
+      counter: Mutex::new(HashMap::new()),
+    }
+  }
+  pub fn check_and_update(&self, client_ip: &str, qps: u64, count: usize) -> bool {
+    let mut counter = self.counter.lock().unwrap();
+    counter.retain(|_, &mut (_, timestamp)| timestamp.elapsed() < Duration::from_secs(qps));
+    match counter.get_mut(client_ip) {
+      Some((cnt, timestamp)) => {
+        if *cnt >= count {
+          false
+        } else {
+          *cnt += 1;
+          *timestamp = Instant::now();
+          true
+        }
+      }
+      None => {
+        counter.insert(client_ip.to_string(), (1, Instant::now()));
+        true
+      }
+    }
+  }
+}
+
 #[derive(Debug, Clone)]
 pub struct AppState {
+  pub rate_limiter: Arc<RateLimiter>,
   pub conn: DatabaseConnection,
   pub anonymous_avatar: Arc<String>,
   pub jwt_key: String,
@@ -52,6 +90,7 @@ pub async fn start() -> Result<(), AppError> {
       .to_string()
       .into(),
     levels: app_config.levels,
+    rate_limiter: Arc::new(RateLimiter::new()),
   };
   HttpServer::new(move || {
     App::new()
