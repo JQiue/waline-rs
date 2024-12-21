@@ -1,3 +1,4 @@
+use actix_web::rt::spawn;
 use helpers::{jwt, time::utc_now};
 use sea_orm::{
   ActiveModelTrait, ColumnTrait, EntityTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, Set,
@@ -280,14 +281,16 @@ pub async fn create_comment(
   if let Some(rid) = rid {
     data["rid"] = json!(rid);
   };
-  send_email_notification(CommentNotification {
-    sender_name: comment.nick.unwrap(),
-    sender_email: comment.mail.unwrap(),
-    comment_id: comment.id,
-    comment: comment.comment.unwrap(),
-    url: comment.url.unwrap(),
-    notify_type: NotifyType::NewComment,
-    lang,
+  spawn(async move {
+    send_email_notification(CommentNotification {
+      sender_name: comment.nick.unwrap(),
+      sender_email: comment.mail.unwrap(),
+      comment_id: comment.id,
+      comment: comment.comment.unwrap(),
+      url: comment.url.unwrap(),
+      notify_type: NotifyType::NewComment,
+      lang,
+    });
   });
   Ok(data)
 }
