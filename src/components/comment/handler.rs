@@ -11,6 +11,7 @@ use crate::{
     comment::{model::*, service},
     user::model::is_admin_user,
   },
+  config::Config,
   error::AppError,
   helpers::header::extract_token,
   response::{Code, Response},
@@ -85,7 +86,7 @@ async fn get_comment_info(
 
 #[post("/comment")]
 async fn create_comment(
-  _req: HttpRequest,
+  req: HttpRequest,
   state: Data<AppState>,
   query: Query<CreateCommentQuery>,
   body: Json<CreateCommentBody>,
@@ -102,6 +103,37 @@ async fn create_comment(
     rid,
     at,
   }) = body;
+  let limiter = &state.rate_limiter;
+  let client_ip = req
+    .peer_addr()
+    .map(|s| s.ip().to_string())
+    .unwrap_or_default();
+  let app_config = Config::from_env().unwrap();
+  let pass = if let Ok(token) = extract_token(&req) {
+    if jwt::verify::<String>(token.clone(), state.jwt_key.clone()).is_err() {
+      false
+    } else {
+      if is_admin_user(
+        jwt::verify::<String>(token, state.jwt_key.clone())
+          .unwrap()
+          .claims
+          .data,
+        &state.conn,
+      )
+      .await
+      .unwrap()
+      {
+        true
+      } else {
+        false
+      }
+    }
+  } else {
+    limiter.check_and_update(&client_ip, app_config.ipqps.unwrap_or(60), 1)
+  };
+  if !pass {
+    return HttpResponse::Ok().json(Response::<()>::error(Code::FrequencyLimited, Some(lang)));
+  }
   match service::create_comment(
     &state,
     comment,

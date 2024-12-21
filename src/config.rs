@@ -25,6 +25,7 @@ pub struct Config {
   pub smtp_pass: Option<String>,
   pub author_email: Option<String>,
   pub levels: Option<String>,
+  pub ipqps: Option<u64>,
 }
 
 impl Config {

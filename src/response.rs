@@ -12,6 +12,7 @@ pub enum Code {
   UserRegistered,
   DuplicateContent,
   Unauthorized,
+  FrequencyLimited,
 }
 
 impl Code {
@@ -22,6 +23,7 @@ impl Code {
       Code::UserRegistered => get_translation(&lang, "USER_REGISTERED"),
       Code::DuplicateContent => get_translation(&lang, "Duplicate Content"),
       Code::Unauthorized => get_translation(&lang, "Unauthorized"),
+      Code::FrequencyLimited => get_translation(&lang, "Comment too fast"),
     }
   }
 }

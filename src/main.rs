@@ -1,3 +1,5 @@
+use tracing::Level;
+
 mod app;
 mod components;
 mod config;
@@ -11,8 +13,7 @@ mod response;
 async fn main() -> Result<(), error::AppError> {
   std::env::set_var("RUST_LOG", "error");
   tracing_subscriber::fmt()
-    .with_max_level(tracing::Level::DEBUG)
-    .with_test_writer()
+    .with_max_level(Level::DEBUG)
     .init();
   app::start().await
 }
