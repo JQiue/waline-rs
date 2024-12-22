@@ -77,6 +77,8 @@ pub fn config_app(cfg: &mut ServiceConfig) {
       .route("/health", web::get().to(health_check)),
   );
   cfg.service(web::scope("/ui").configure(UIComponent::config));
+  #[cfg(feature = "leancloud")]
+  cfg.route("/", web::get().to(health_check));
 }
 
 pub async fn start() -> Result<(), AppError> {
