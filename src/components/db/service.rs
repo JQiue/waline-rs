@@ -5,7 +5,7 @@ use crate::{
   response::Code,
 };
 use chrono::{DateTime, Utc};
-use sea_orm::{EntityTrait, Iterable, QuerySelect, Set};
+use sea_orm::{ActiveModelTrait, EntityTrait, Iterable, QuerySelect, Set};
 use serde_json::{json, Value};
 
 pub async fn export_data(state: &AppState, _lang: String) -> Result<Value, String> {
@@ -62,25 +62,24 @@ pub async fn create_comment_data(
   updated_at: Option<chrono::DateTime<Utc>>,
   inserted_at: Option<chrono::DateTime<Utc>>,
 ) -> Result<bool, Code> {
-  let model = wl_comment::ActiveModel {
-    comment: Set(comment),
-    inserted_at: Set(inserted_at),
-    ip: Set(ip),
-    link: Set(link),
-    mail: Set(mail),
-    nick: Set(nick),
-    status: Set(status.unwrap()),
-    ua: Set(ua),
-    url: Set(url),
-    created_at: Set(create_at),
-    updated_at: Set(updated_at),
-    ..Default::default()
-  };
   Ok(
-    wl_comment::Entity::insert(model)
-      .exec(&state.conn)
-      .await
-      .is_ok(),
+    wl_comment::ActiveModel {
+      comment: Set(comment),
+      inserted_at: Set(inserted_at),
+      ip: Set(ip),
+      link: Set(link),
+      mail: Set(mail),
+      nick: Set(nick),
+      status: Set(status.unwrap()),
+      ua: Set(ua),
+      url: Set(url),
+      created_at: Set(create_at),
+      updated_at: Set(updated_at),
+      ..Default::default()
+    }
+    .insert(&state.conn)
+    .await
+    .is_ok(),
   )
 }
 
@@ -100,26 +99,27 @@ pub async fn create_counter_data(
   created_at: Option<chrono::DateTime<Utc>>,
   updated_at: Option<chrono::DateTime<Utc>>,
 ) -> Result<bool, String> {
-  let model = wl_counter::ActiveModel {
-    time: Set(time),
-    reaction0: Set(reaction0),
-    reaction1: Set(reaction1),
-    reaction2: Set(reaction2),
-    reaction3: Set(reaction3),
-    reaction4: Set(reaction4),
-    reaction5: Set(reaction5),
-    reaction6: Set(reaction6),
-    reaction7: Set(reaction7),
-    reaction8: Set(reaction8),
-    url: Set(url.unwrap()),
-    created_at: Set(created_at),
-    updated_at: Set(updated_at),
-    ..Default::default()
-  };
-  match wl_counter::Entity::insert(model).exec(&state.conn).await {
-    Ok(_) => Ok(true),
-    Err(err) => Err(err.to_string()),
-  }
+  Ok(
+    wl_counter::ActiveModel {
+      time: Set(time),
+      reaction0: Set(reaction0),
+      reaction1: Set(reaction1),
+      reaction2: Set(reaction2),
+      reaction3: Set(reaction3),
+      reaction4: Set(reaction4),
+      reaction5: Set(reaction5),
+      reaction6: Set(reaction6),
+      reaction7: Set(reaction7),
+      reaction8: Set(reaction8),
+      url: Set(url.unwrap()),
+      created_at: Set(created_at),
+      updated_at: Set(updated_at),
+      ..Default::default()
+    }
+    .insert(&state.conn)
+    .await
+    .is_ok(),
+  )
 }
 
 // todo
@@ -230,7 +230,7 @@ pub async fn delete_data(state: &AppState, table: &str, _lang: String) -> Result
       Ok(true)
     }
     "Counter" => {
-      wl_comment::Entity::delete_many()
+      wl_counter::Entity::delete_many()
         .exec(&state.conn)
         .await
         .unwrap();

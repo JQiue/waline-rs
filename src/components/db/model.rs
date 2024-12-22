@@ -19,10 +19,8 @@ pub struct DeleteQuery {
 }
 
 mod datetime_utc_format {
-  use chrono::{DateTime, NaiveDateTime, Utc};
+  use chrono::{DateTime, TimeZone, Utc};
   use serde::{self, Deserialize, Deserializer};
-
-  const FORMAT: &str = "%Y-%m-%d %H:%M:%S";
 
   pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<DateTime<Utc>>, D::Error>
   where
@@ -31,11 +29,31 @@ mod datetime_utc_format {
     let s: Option<String> = Option::deserialize(deserializer)?;
     match s {
       Some(s) => {
-        let naive = NaiveDateTime::parse_from_str(&s, FORMAT).map_err(serde::de::Error::custom)?;
-        Ok(Some(DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc)))
+        let dt = parse_datetime(&s).map_err(serde::de::Error::custom)?;
+        Ok(Some(dt))
       }
       None => Ok(None),
     }
+  }
+
+  fn parse_datetime(s: &str) -> Result<DateTime<Utc>, String> {
+    let formats = [
+      // 2024-07-28T03:50:31Z
+      |s: &str| DateTime::parse_from_rfc3339(s).map(|dt| dt.with_timezone(&Utc)),
+      |s: &str| Utc.datetime_from_str(s, "%Y-%m-%d %H:%M:%S"),
+      // 2024-12-21T14:08:39
+      |s: &str| Utc.datetime_from_str(s, "%Y-%m-%dT%H:%M:%S"),
+      // 2024-12-10T14:33:24.831981036
+      |s: &str| Utc.datetime_from_str(s, "%Y-%m-%dT%H:%M:%S.%f"),
+    ];
+
+    for parse_attempt in formats.iter() {
+      if let Ok(dt) = parse_attempt(s) {
+        return Ok(dt);
+      }
+    }
+    tracing::debug!("无法解析时间格式: {}", s);
+    Err(format!("无法解析时间格式: {}", s))
   }
 }
 
