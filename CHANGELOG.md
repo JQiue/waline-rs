@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0]
+
+### 🚀 Features
+
+- Impl the frequency limit of comment posting
+- Impl comment review
+- Impl prevent flooding
+
+### ⚡ Performance
+
+- Improves the response time to creating comments
+
+### ⚙️ Miscellaneous Tasks
+
+- Update README.md
+- Enhance release workflow for multiple build targets
+
 ## [0.5.0] - 2024-12-20
 
 ### 🚀 Features
@@ -21,7 +38,7 @@ All notable changes to this project will be documented in this file.
 - Update README.md
 - Update Cargo.lock
 - Update READEME.md
-- Release walini-mini version v0.5.0
+- Release waline-mini version v0.5.0
 
 ## [0.4.2] - 2024-12-11
 
