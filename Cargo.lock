@@ -3564,7 +3564,6 @@ dependencies = [
  "actix-cors",
  "actix-web",
  "ammonia",
- "bcrypt",
  "chrono",
  "dotenvy",
  "envy",
