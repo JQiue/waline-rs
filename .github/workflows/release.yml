@@ -16,7 +16,6 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           changelog: CHANGELOG.md
-
   upload-assets:
     needs: create-release
     strategy:
@@ -40,7 +39,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install cross-compilation tools
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
           bin: waline-mini
