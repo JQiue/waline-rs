@@ -23,28 +23,28 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
+            label: x86_64-unknown-linux-gnu
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-20.04
+            label: x86_64-unknown-linux-gnu-ubuntu-20.04
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            label: x86_64-unknown-linux-musl
           - target: x86_64-apple-darwin
             os: macos-latest
+            label: x86_64-apple-darwin
           - target: x86_64-pc-windows-msvc
             os: windows-latest
+            label: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: taiki-e/upload-rust-binary-action@v1
         with:
-          # (required) Comma-separated list of binary names (non-extension portion of filename) to build and upload.
-          # Note that glob pattern is not supported yet.
           bin: waline-mini
           target: ${{ matrix.target }}
-          # (optional) On which platform to distribute the `.tar.gz` file.
-          # [default value: unix]
-          # [possible values: all, unix, windows, none]
           tar: unix
-          # (optional) On which platform to distribute the `.zip` file.
-          # [default value: windows]
-          # [possible values: all, unix, windows, none]
           zip: windows
           include: README.md
-          archive: $bin-$tag-$target
-          # (required) GitHub token for uploading assets to GitHub Releases.
+          archive: $bin-$tag-${{ matrix.label }}
           token: ${{ secrets.GITHUB_TOKEN }}
