@@ -8,11 +8,26 @@ fn default_workers() -> usize {
   1
 }
 
+fn default_port() -> u16 {
+  #[cfg(feature = "leancloud")]
+  {
+    std::env::var("LEANCLOUD_APP_PORT")
+      .unwrap_or_else(|_| "8360".to_string())
+      .parse()
+      .unwrap_or(8360)
+  }
+  #[cfg(not(feature = "leancloud"))]
+  {
+    8360
+  }
+}
+
 #[derive(Deserialize, Debug)]
 pub struct Config {
   #[serde(default = "default_workers")]
   pub workers: usize,
   pub host: String,
+  #[serde(default = "default_port")]
   pub port: u16,
   pub database_url: String,
   pub jwt_key: String,
