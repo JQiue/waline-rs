@@ -1564,9 +1564,13 @@ dependencies = [
  "nom",
  "percent-encoding",
  "quoted_printable",
+ "rustls 0.23.20",
+ "rustls-pemfile",
+ "rustls-pki-types",
  "socket2",
  "tokio",
  "url",
+ "webpki-roots 0.26.7",
 ]
 
 [[package]]
@@ -2484,6 +2488,7 @@ version = "0.23.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5065c3f250cbd332cd894be57c40fa52387247659b14a2d6041d121547903b1b"
 dependencies = [
+ "log",
  "once_cell",
  "ring 0.17.8",
  "rustls-pki-types",
