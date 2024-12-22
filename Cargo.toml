@@ -25,7 +25,13 @@ chrono = "=0.4.37"
 pulldown-cmark = "=0.10.3"
 envy = "=0.4.2"
 helpers = { version = "=0.4.2", features = ["hash", "jwt", "time"] }
-lettre = { version = "=0.11.11", features = ["rustls-tls"] }
+lettre = { version = "=0.11.11", default-features = false, features = [
+  "builder",
+  "hostname",
+  "pool",
+  "smtp-transport",
+  "rustls-tls",
+] }
 strfmt = "=0.2.4"
 ammonia = "=4.0.0"
 
