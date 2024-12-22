@@ -2,7 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.6.0]
+## [0.6.1]
+
+### ⚙️ Miscellaneous Tasks
+
+- Specify CHANGELGO.md
+- Use rustls to solve musl compilation issues and add LeanCloud feature for targeted deployment
+
+## [0.6.0] - 2024-12-22
 
 ### 🚀 Features
 
@@ -18,6 +25,7 @@ All notable changes to this project will be documented in this file.
 
 - Update README.md
 - Enhance release workflow for multiple build targets
+- Release v0.6.0
 
 ## [0.5.0] - 2024-12-20
 
