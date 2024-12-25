@@ -24,7 +24,7 @@ woothee = "=0.13.0"
 chrono = "=0.4.37"
 pulldown-cmark = "=0.10.3"
 envy = "=0.4.2"
-helpers = { version = "=0.4.2", features = ["hash", "jwt", "time"] }
+helpers = { version = "=0.4.2", features = ["hash", "jwt", "time", "uuid"] }
 lettre = { version = "=0.11.11", default-features = false, features = [
   "builder",
   "hostname",
@@ -34,6 +34,7 @@ lettre = { version = "=0.11.11", default-features = false, features = [
 ] }
 strfmt = "=0.2.4"
 ammonia = "=4.0.0"
+regex = "=1.10.3"
 
 [features]
 default = []

@@ -13,6 +13,7 @@ pub enum Code {
   DuplicateContent,
   Unauthorized,
   FrequencyLimited,
+  TokenExpired,
 }
 
 impl Code {
@@ -24,6 +25,7 @@ impl Code {
       Code::DuplicateContent => get_translation(&lang, "Duplicate Content"),
       Code::Unauthorized => get_translation(&lang, "Unauthorized"),
       Code::FrequencyLimited => get_translation(&lang, "Comment too fast"),
+      Code::TokenExpired => get_translation(&lang, "TOKEN_EXPIRED"),
     }
   }
 }
