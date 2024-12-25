@@ -243,14 +243,14 @@ pub async fn set_2fa(_state: &AppState, _code: String, _secret: String) -> Resul
 pub async fn get_2fa(state: &AppState, email: Option<String>) -> Result<Value, Code> {
   match email {
     Some(email) => {
-      let res = wl_users::Entity::find()
+      let user = wl_users::Entity::find()
         .filter(wl_users::Column::Email.eq(email))
         .filter(wl_users::Column::TwoFactorAuth.is_not_null())
         .filter(wl_users::Column::TwoFactorAuth.ne(""))
         .one(&state.conn)
         .await
         .map_err(AppError::from)?;
-      match res {
+      match user {
         Some(_) => Ok(json!({
             "enable": true
         })),

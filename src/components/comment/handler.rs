@@ -37,10 +37,7 @@ async fn get_comment_info(
   if let Some(path) = path {
     let fields = query.validate_by_path();
     if fields.is_err() {
-      return HttpResponse::Ok().json(Response::<()>::error(
-        Code::Error,
-        Some(lang.unwrap_or("en".to_string())),
-      ));
+      return HttpResponse::Ok().json(Response::<()>::error(Code::Error, Some(&lang)));
     }
     let token = extract_token(&req);
     match service::get_comment_info(
@@ -53,29 +50,26 @@ async fn get_comment_info(
     )
     .await
     {
-      Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), lang)),
-      Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, lang)),
+      Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(&lang))),
+      Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(&lang))),
     }
   } else {
     let fields = query.validate_by_admin();
     if fields.is_err() {
       tracing::error!("{:?}", fields.err().unwrap());
-      return HttpResponse::Ok().json(Response::<()>::error(
-        Code::Error,
-        Some(lang.unwrap_or("en".to_string())),
-      ));
+      return HttpResponse::Ok().json(Response::<()>::error(Code::Error, Some(&lang)));
     }
     let token = extract_token(&req).unwrap();
     let email = match jwt::verify::<String>(token, state.jwt_key.clone()).map_err(AppError::from) {
       Ok(token_data) => token_data.claims.data,
-      Err(err) => return HttpResponse::Ok().json(Response::<()>::error(err.into(), lang)),
+      Err(err) => return HttpResponse::Ok().json(Response::<()>::error(err.into(), Some(&lang))),
     };
     let is = match is_admin_user(email.clone(), &state.conn).await {
       Ok(value) => value,
-      Err(err) => return HttpResponse::Ok().json(Response::<()>::error(err, lang)),
+      Err(err) => return HttpResponse::Ok().json(Response::<()>::error(err, Some(&lang))),
     };
     if !is {
-      return HttpResponse::Ok().json(Response::<()>::error(Code::Unauthorized, lang));
+      return HttpResponse::Ok().json(Response::<()>::error(Code::Unauthorized, Some(&lang)));
     }
     match service::get_comment_info_by_admin(
       &state,
@@ -87,8 +81,8 @@ async fn get_comment_info(
     )
     .await
     {
-      Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), lang)),
-      Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, lang)),
+      Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(&lang))),
+      Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(&lang))),
     }
   }
 }
@@ -144,14 +138,14 @@ async fn create_comment(
       .check_and_update(&client_ip, app_config.ipqps.unwrap_or(60), 1)
   };
   if !pass {
-    return HttpResponse::Ok().json(Response::<()>::error(Code::FrequencyLimited, Some(lang)));
+    return HttpResponse::Ok().json(Response::<()>::error(Code::FrequencyLimited, Some(&lang)));
   }
   if is_duplicate(&url, &mail, &nick, &link, &comment, &state.conn)
     .await
     .unwrap()
     && !is_admin
   {
-    return HttpResponse::Ok().json(Response::<()>::error(Code::DuplicateContent, Some(lang)));
+    return HttpResponse::Ok().json(Response::<()>::error(Code::DuplicateContent, Some(&lang)));
   }
   match service::create_comment(
     &state,
@@ -168,8 +162,8 @@ async fn create_comment(
   )
   .await
   {
-    Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(lang))),
-    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(lang))),
+    Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(&lang))),
+    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(&lang))),
   }
 }
 

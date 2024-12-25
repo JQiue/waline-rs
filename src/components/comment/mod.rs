@@ -1,5 +1,5 @@
 mod handler;
-mod model;
+pub mod model;
 mod service;
 
 use actix_web::web::ServiceConfig;
