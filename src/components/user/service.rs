@@ -1,3 +1,8 @@
+use helpers::{
+  time::utc_now,
+  uuid::{self, Alphabet},
+};
+use regex::Regex;
 use sea_orm::{
   ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel, Iterable, QueryFilter, QuerySelect,
   Set,
@@ -7,9 +12,12 @@ use serde_json::{json, Value};
 use crate::{
   app::AppState,
   components::user::model::{has_user, is_first_user, UserQueryBy},
+  config::Config,
   entities::*,
   error::AppError,
-  helpers::email::extract_email_prefix,
+  helpers::email::{
+    extract_email_prefix, send_email_notification, CommentNotification, NotifyType,
+  },
   response::Code,
 };
 
@@ -21,25 +29,45 @@ pub async fn user_register(
   email: String,
   password: String,
   url: String,
+  host: String,
+  lang: String,
 ) -> Result<Value, Code> {
   if has_user(UserQueryBy::Email(email.clone()), &state.conn).await? {
     return Err(Code::UserRegistered);
   }
-
   let hashed = helpers::hash::bcrypt(password.as_bytes()).map_err(|_| Code::Error)?;
-  let mut model = wl_users::ActiveModel {
+  let mut user = wl_users::ActiveModel {
     display_name: Set(display_name),
-    email: Set(email),
+    email: Set(email.clone()),
     url: Set(Some(url)),
     password: Set(hashed),
     ..Default::default()
   };
   if is_first_user(&state.conn).await? {
-    model.r#type = Set("administrator".to_string());
+    user.r#type = Set("administrator".to_string());
   } else {
-    model.r#type = Set("guest".to_string());
+    let app_config = Config::from_env().unwrap();
+    let token = uuid::uuid(&Alphabet::NUMBERS, 4);
+    user.r#type = Set(format!(
+      "verify:{}:{}",
+      token,
+      utc_now().timestamp_millis() + 1 * 60 * 60 * 1000
+    ));
+    let url = format!(
+      "http://{}/api/verification?token={}&email={}",
+      host, token, email
+    );
+    send_email_notification(CommentNotification {
+      sender_name: app_config.site_name,
+      sender_email: email,
+      comment_id: 0,
+      comment: "".to_string(),
+      url,
+      notify_type: NotifyType::Notify,
+      lang: Some(lang),
+    });
   }
-  match model.insert(&state.conn).await.map_err(AppError::from) {
+  match user.insert(&state.conn).await.map_err(AppError::from) {
     Ok(_) => Ok(json! ({
       "data": {
         "verify": true
@@ -185,12 +213,27 @@ pub async fn get_user_info(state: &AppState, email: Option<String>) -> Result<Va
   }
 }
 
-/// todo
-pub async fn verification(state: &AppState, email: String, _token: String) -> Result<bool, Code> {
+pub async fn verification(state: &AppState, email: String, token: String) -> Result<bool, Code> {
   let user = get_user(UserQueryBy::Email(email), &state.conn)
     .await
-    .map_err(AppError::from);
-  Ok(user.is_ok())
+    .map_err(AppError::from)?;
+  tracing::debug!("type: {}", user.r#type);
+  let reg = Regex::new(r"^verify:(\d{4}):(\d+)$").unwrap();
+  tracing::debug!("reg {}", reg);
+  let captures = reg.captures(&user.r#type).unwrap();
+  tracing::debug!("captures {:#?}", captures);
+  if token == captures.get(1).unwrap().as_str()
+    && utc_now().timestamp_millis() < captures.get(2).unwrap().as_str().parse::<i64>().unwrap()
+  {
+    let mut active_user = user.into_active_model();
+    active_user.r#type = Set("guest".to_string());
+    active_user
+      .update(&state.conn)
+      .await
+      .map_err(AppError::from)?;
+    return Ok(true);
+  }
+  Err(Code::TokenExpired)
 }
 
 /// 设置 2fa（todo）

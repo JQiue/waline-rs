@@ -58,12 +58,15 @@ pub struct CommentNotification {
 }
 
 pub enum NotifyType {
+  Notify,
   NewComment,
   ReplyComment,
 }
 
 pub fn send_email_notification(notification: CommentNotification) {
   let app_config = Config::from_env().unwrap();
+  let to;
+  let reply_to;
   let subject;
   let body;
   let post_url = format!(
@@ -72,6 +75,9 @@ pub fn send_email_notification(notification: CommentNotification) {
   );
   match notification.notify_type {
     NotifyType::NewComment => {
+      if app_config.author_email.is_none() {
+        return;
+      }
       let subject_template = get_translation(
         &notification.lang.clone().unwrap_or("en".to_owned()),
         "MAIL_SUBJECT_ADMIN",
@@ -84,19 +90,36 @@ pub fn send_email_notification(notification: CommentNotification) {
       body =
         strfmt!(&body_template, site_url=> app_config.site_url, site_name=>app_config.site_name, nick=>notification.sender_name, comment=>notification.comment, post_url=>post_url)
           .unwrap();
+      to = app_config.author_email.clone().unwrap();
+      reply_to = app_config.author_email.unwrap();
     }
     NotifyType::ReplyComment => {
       subject = "".to_owned();
       body = "".to_owned();
+      to = notification.sender_email;
+      reply_to = app_config.author_email.unwrap();
+    }
+    NotifyType::Notify => {
+      let subject_template = get_translation(
+        &notification.lang.clone().unwrap_or("en".to_owned()),
+        "Registration Confirm Mail",
+      );
+      let body_template = get_translation(
+        &notification.lang.clone().unwrap_or("en".to_owned()),
+        "confirm registration",
+      );
+      subject = strfmt!(&subject_template, name => app_config.site_name.clone()).unwrap();
+      body =
+        strfmt!(&body_template, url=> notification.url.clone(), url=> notification.url).unwrap();
+      to = notification.sender_email;
+      tracing::debug!("Body: {:#?}", body);
+      reply_to = app_config.author_email.unwrap();
     }
   }
-  if app_config.author_email.is_none() {
-    return;
-  }
-  email(app_config.author_email.unwrap(), subject, body);
+  email(to, reply_to, subject, body);
 }
 
-pub fn email(reply_to: String, subject: String, body: String) {
+pub fn email(to: String, reply_to: String, subject: String, body: String) {
   let app_config = Config::from_env().unwrap();
   let host;
   let port;
@@ -133,7 +156,7 @@ pub fn email(reply_to: String, subject: String, body: String) {
       .unwrap(),
     )
     .reply_to(reply_to.parse().unwrap())
-    .to(app_config.smtp_user.clone().unwrap().parse().unwrap())
+    .to(to.parse().unwrap())
     .subject(subject)
     .header(ContentType::TEXT_HTML)
     .body(body)

@@ -1,6 +1,6 @@
 use actix_web::{
   delete, get,
-  http::header::AUTHORIZATION,
+  http::{self, header::AUTHORIZATION},
   post, put,
   web::{Data, Json, Path, Query},
   HttpRequest, HttpResponse,
@@ -16,6 +16,7 @@ use crate::{
 
 #[post("/user")]
 pub async fn user_register(
+  req: HttpRequest,
   state: Data<AppState>,
   query: Query<UserRegisterQuery>,
   body: Json<UserRegisterBody>,
@@ -27,7 +28,23 @@ pub async fn user_register(
     password,
     url,
   }) = body;
-  match service::user_register(&state, display_name, email, password, url).await {
+  match service::user_register(
+    &state,
+    display_name,
+    email,
+    password,
+    url,
+    req
+      .headers()
+      .get("host")
+      .unwrap()
+      .to_str()
+      .unwrap()
+      .to_string(),
+    lang.clone(),
+  )
+  .await
+  {
     Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(lang))),
     Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(lang))),
   }
@@ -51,7 +68,6 @@ pub async fn user_logout() -> HttpResponse {
   HttpResponse::Ok().json(Response::<()>::success(None, None))
 }
 
-/// 获取登录用户信息
 #[get("/token")]
 async fn get_login_user_info(req: HttpRequest, state: Data<AppState>) -> HttpResponse {
   if let Some(token) = extract_token_from_header(&req.headers().get(AUTHORIZATION)) {
@@ -139,15 +155,13 @@ pub async fn get_user_info(state: Data<AppState>, query: Query<GetUserQuery>) ->
   }
 }
 
-/// todo
-#[post("/verification")]
+#[get("/verification")]
 pub async fn verification(state: Data<AppState>, query: Query<VerificationQuery>) -> HttpResponse {
   let Query(VerificationQuery { email, token }) = query;
   match service::verification(&state, email, token).await {
-    Ok(_) => HttpResponse::Ok().json(Response::<()>::error(
-      crate::response::Code::UserRegistered,
-      None,
-    )),
+    Ok(_) => HttpResponse::Found()
+      .append_header((http::header::LOCATION, "/ui/login"))
+      .finish(),
     Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),
   }
 }
