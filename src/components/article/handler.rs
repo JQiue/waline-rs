@@ -14,8 +14,8 @@ use actix_web::{
 async fn get_article(data: Data<AppState>, query: Query<GetArticleQuery>) -> HttpResponse {
   let Query(GetArticleQuery { path, r#type, lang }) = query;
   match service::get_article(&data, path, r#type).await {
-    Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(lang))),
-    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(lang))),
+    Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(&lang))),
+    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(&lang))),
   }
 }
 
@@ -32,7 +32,7 @@ async fn update_article(
   }) = body;
   let Query(UpdateArticleQuery { lang }) = query;
   match service::update_article(&data, action, path, r#type).await {
-    Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(lang))),
-    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(lang))),
+    Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(&lang))),
+    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(&lang))),
   }
 }

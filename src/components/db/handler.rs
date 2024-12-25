@@ -8,7 +8,7 @@ use serde_json::json;
 use crate::{
   app::AppState,
   components::db::{model::*, service},
-  response::Response,
+  response::{Code, Response},
 };
 
 #[get("/db")]
@@ -81,8 +81,8 @@ pub async fn create_data(
     )
     .await
     {
-      Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(lang))),
-      Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(lang))),
+      Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(&lang))),
+      Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(&lang))),
     },
     "Counter" => match service::create_counter_data(
       &state, time, url, reaction0, reaction1, reaction2, reaction3, reaction4, reaction5,
@@ -139,13 +139,7 @@ pub async fn update_data(
   query: Query<UpdateDataQuery>,
   body: Json<UpdateDataBody>,
 ) -> HttpResponse {
-  let Query(UpdateDataQuery {
-    object_id: _,
-    table,
-    lang,
-  }) = query;
   let Json(UpdateDataBody {
-    user_id,
     object_id,
     two_factor_auth,
     display_name,
@@ -156,22 +150,16 @@ pub async fn update_data(
     url,
     created_at,
     updated_at,
+    pid,
+    rid,
   }) = body;
-  match table.as_str() {
-    "Comment" => match service::update_comment_data(&state, lang, object_id, user_id).await {
-      Ok(_) => HttpResponse::Ok().json(json!({
-        "data": "",
-        "errno": 0,
-        "errmsg": "",
-      })),
-      Err(_) => HttpResponse::Ok().json(json!({
-        "errno": 1000,
-        "errmsg": "",
-      })),
+  match query.table.as_str() {
+    "Comment" => match service::update_comment_data(&state, query.object_id, pid, rid).await {
+      Ok(_) => HttpResponse::Ok().json(Response::<()>::success(None, Some(&query.lang))),
+      Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(&query.lang))),
     },
     "Users" => match service::update_user_data(
       &state,
-      lang,
       object_id,
       display_name,
       password,
@@ -185,34 +173,18 @@ pub async fn update_data(
     )
     .await
     {
-      Ok(_) => HttpResponse::Ok().json(json!({
-        "errno": 0,
-        "errmsg": "",
-      })),
-      Err(err) => HttpResponse::Ok().json(json!({
-        "errno": 1000,
-        "errmsg": err,
-      })),
+      Ok(_) => HttpResponse::Ok().json(Response::<()>::success(None, Some(&query.lang))),
+      Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(&query.lang))),
     },
-
-    _ => HttpResponse::Ok().json(json!({
-      "errno": 1000,
-      "errmsg": "",
-    })),
+    _ => HttpResponse::Ok().json(Response::<()>::error(Code::Error, Some(&query.lang))),
   }
 }
 
 #[delete("/db")]
 pub async fn delete_data(state: Data<AppState>, query: Query<DeleteQuery>) -> HttpResponse {
   let Query(DeleteQuery { table, lang }) = query;
-  match service::delete_data(&state, &table, lang).await {
-    Ok(_) => HttpResponse::Ok().json(json!({
-      "errno": 0,
-      "errmsg": "",
-    })),
-    Err(_) => HttpResponse::Ok().json(json!({
-      "errno": 1000,
-      "errmsg": "todo",
-    })),
+  match service::delete_data(&state, &table).await {
+    Ok(_) => HttpResponse::Ok().json(Response::<()>::success(None, Some(&lang))),
+    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(&lang))),
   }
 }

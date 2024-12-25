@@ -45,8 +45,8 @@ pub async fn user_register(
   )
   .await
   {
-    Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(lang))),
-    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(lang))),
+    Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(&lang))),
+    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(&lang))),
   }
 }
 
@@ -149,8 +149,8 @@ pub async fn get_user_info(state: Data<AppState>, query: Query<GetUserQuery>) ->
     }
   } else {
     match service::get_user_info(&state, email).await {
-      Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), lang)),
-      Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, lang)),
+      Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(&lang))),
+      Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(&lang))),
     }
   }
 }
@@ -186,7 +186,7 @@ pub async fn set_2fa(state: Data<AppState>, body: Json<Set2faBody>) -> HttpRespo
 pub async fn get_2fa(state: Data<AppState>, query: Query<Get2faQuery>) -> HttpResponse {
   let Query(Get2faQuery { lang, email }) = query;
   match service::get_2fa(&state, email).await {
-    Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(lang))),
+    Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(&lang))),
     Err(_) => HttpResponse::Ok().json(json!({
       "errno": 1000,
       "errmsg": "二部验证失败"

@@ -99,14 +99,13 @@ pub struct CreateDataBody {
 #[derive(Deserialize)]
 pub struct UpdateDataQuery {
   #[serde(rename = "objectId")]
-  pub object_id: Option<u32>,
+  pub object_id: u32,
   pub table: String,
   pub lang: String,
 }
 
 #[derive(Deserialize)]
 pub struct UpdateDataBody {
-  pub user_id: Option<u32>,
   #[serde(rename = "objectId")]
   pub object_id: Option<u32>,
   #[serde(rename = "2fa")]
@@ -121,4 +120,6 @@ pub struct UpdateDataBody {
   pub created_at: Option<chrono::DateTime<Utc>>,
   #[serde(rename = "updatedAt", default, with = "datetime_utc_format")]
   pub updated_at: Option<chrono::DateTime<Utc>>,
+  pub pid: Option<i32>,
+  pub rid: Option<i32>,
 }

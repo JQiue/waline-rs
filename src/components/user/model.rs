@@ -35,8 +35,8 @@ pub struct SetUserProfileBody {
 #[derive(Deserialize)]
 pub struct GetUserQuery {
   pub email: Option<String>,
-  pub lang: Option<String>,
   pub page: Option<u32>,
+  pub lang: String,
 }
 
 #[derive(Deserialize)]

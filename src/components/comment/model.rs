@@ -171,7 +171,7 @@ pub fn build_data_entry(
 
 #[derive(Deserialize, Clone)]
 pub struct GetCommentQuery {
-  pub lang: Option<String>,
+  pub lang: String,
   pub path: Option<String>,
   #[serde(rename = "pageSize")]
   pub page_size: Option<i32>,
@@ -205,9 +205,6 @@ impl GetCommentQuery {
   }
   pub fn validate_by_admin(&self) -> Result<(), Vec<&'static str>> {
     let mut missing_fields = Vec::new();
-    if self.lang.is_none() {
-      missing_fields.push("lang");
-    }
     if self.r#type.is_none() {
       missing_fields.push("type");
     }

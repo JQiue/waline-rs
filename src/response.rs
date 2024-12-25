@@ -17,15 +17,15 @@ pub enum Code {
 }
 
 impl Code {
-  pub fn message(&self, lang: String) -> String {
+  pub fn message(&self, lang: &str) -> String {
     match self {
       Code::Success => "".to_owned(),
       Code::Error => "".to_owned(),
-      Code::UserRegistered => get_translation(&lang, "USER_REGISTERED"),
-      Code::DuplicateContent => get_translation(&lang, "Duplicate Content"),
-      Code::Unauthorized => get_translation(&lang, "Unauthorized"),
-      Code::FrequencyLimited => get_translation(&lang, "Comment too fast"),
-      Code::TokenExpired => get_translation(&lang, "TOKEN_EXPIRED"),
+      Code::UserRegistered => get_translation(lang, "USER_REGISTERED"),
+      Code::DuplicateContent => get_translation(lang, "Duplicate Content"),
+      Code::Unauthorized => get_translation(lang, "Unauthorized"),
+      Code::FrequencyLimited => get_translation(lang, "Comment too fast"),
+      Code::TokenExpired => get_translation(lang, "TOKEN_EXPIRED"),
     }
   }
 }
@@ -39,19 +39,19 @@ pub struct Response<T> {
 }
 
 impl<T> Response<T> {
-  pub fn success(data: Option<T>, lang: Option<String>) -> Self {
+  pub fn success(data: Option<T>, lang: Option<&str>) -> Self {
     Response {
       data,
       errno: 0,
-      errmsg: Code::Success.message(lang.unwrap_or("en".to_owned())),
+      errmsg: Code::Success.message(lang.unwrap_or("en")),
     }
   }
 
-  pub fn error(code: Code, lang: Option<String>) -> Self {
+  pub fn error(code: Code, lang: Option<&str>) -> Self {
     Response {
       data: None,
       errno: 1000,
-      errmsg: code.message(lang.unwrap_or("en".to_owned())),
+      errmsg: code.message(lang.unwrap_or("en")),
     }
   }
 }

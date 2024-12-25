@@ -1,11 +1,15 @@
 use crate::{
   app::AppState,
-  components::user::model::{has_user, UserQueryBy},
+  components::{
+    comment::model::{get_comment, CommentQueryBy},
+    user::model::{has_user, UserQueryBy},
+  },
   entities::{wl_comment, wl_counter, wl_users},
+  error::AppError,
   response::Code,
 };
 use chrono::{DateTime, Utc};
-use sea_orm::{ActiveModelTrait, EntityTrait, Iterable, QuerySelect, Set};
+use sea_orm::{ActiveModelTrait, EntityTrait, IntoActiveModel, Iterable, QuerySelect, Set};
 use serde_json::{json, Value};
 
 pub async fn export_data(state: &AppState, _lang: String) -> Result<Value, String> {
@@ -61,26 +65,38 @@ pub async fn create_comment_data(
   create_at: Option<chrono::DateTime<Utc>>,
   updated_at: Option<chrono::DateTime<Utc>>,
   inserted_at: Option<chrono::DateTime<Utc>>,
-) -> Result<bool, Code> {
-  Ok(
-    wl_comment::ActiveModel {
-      comment: Set(comment),
-      inserted_at: Set(inserted_at),
-      ip: Set(ip),
-      link: Set(link),
-      mail: Set(mail),
-      nick: Set(nick),
-      status: Set(status.unwrap()),
-      ua: Set(ua),
-      url: Set(url),
-      created_at: Set(create_at),
-      updated_at: Set(updated_at),
-      ..Default::default()
-    }
-    .insert(&state.conn)
-    .await
-    .is_ok(),
-  )
+) -> Result<Value, Code> {
+  let comment = wl_comment::ActiveModel {
+    comment: Set(comment),
+    inserted_at: Set(inserted_at),
+    ip: Set(ip),
+    link: Set(link),
+    mail: Set(mail),
+    nick: Set(nick),
+    status: Set(status.unwrap()),
+    ua: Set(ua),
+    url: Set(url),
+    created_at: Set(create_at),
+    updated_at: Set(updated_at),
+    ..Default::default()
+  }
+  .insert(&state.conn)
+  .await
+  .map_err(AppError::from)?;
+  Ok(json!({
+    "objectId": comment.id,
+    "comment": comment.comment,
+    "ip": comment.ip,
+    "link": comment.link,
+    "mail": comment.mail,
+    "nick": comment.nick,
+    "status": comment.status,
+    "ua": comment.ua,
+    "url": comment.url,
+    "insertedAt": comment.inserted_at,
+    "createdAt": comment.created_at,
+    "updatedAt": comment.updated_at,
+  }))
 }
 
 pub async fn create_counter_data(
@@ -98,7 +114,7 @@ pub async fn create_counter_data(
   reaction8: Option<i32>,
   created_at: Option<chrono::DateTime<Utc>>,
   updated_at: Option<chrono::DateTime<Utc>>,
-) -> Result<bool, String> {
+) -> Result<wl_counter::Model, Code> {
   Ok(
     wl_counter::ActiveModel {
       time: Set(time),
@@ -118,17 +134,22 @@ pub async fn create_counter_data(
     }
     .insert(&state.conn)
     .await
-    .is_ok(),
+    .map_err(AppError::from)?,
   )
 }
 
-// todo
 pub async fn update_comment_data(
-  _state: &AppState,
-  _lang: String,
-  _object_id: Option<u32>,
-  _user_id: Option<u32>,
-) -> Result<bool, String> {
+  state: &AppState,
+  object_id: u32,
+  pid: Option<i32>,
+  rid: Option<i32>,
+) -> Result<bool, Code> {
+  let mut comment = get_comment(CommentQueryBy::Id(object_id), &state.conn)
+    .await?
+    .into_active_model();
+  comment.pid = Set(pid);
+  comment.rid = Set(rid);
+  comment.update(&state.conn).await.map_err(AppError::from)?;
   Ok(true)
 }
 
@@ -165,7 +186,6 @@ pub async fn create_user_data(
 
 pub async fn update_user_data(
   state: &AppState,
-  _lang: String,
   object_id: Option<u32>,
   display_name: Option<String>,
   password: Option<String>,
@@ -183,7 +203,7 @@ pub async fn update_user_data(
   )
   .await?
   {
-    let model = wl_users::ActiveModel {
+    let active_user = wl_users::ActiveModel {
       id: Set(object_id.unwrap()),
       display_name: Set(display_name.unwrap()),
       email: Set(email.unwrap()),
@@ -196,12 +216,12 @@ pub async fn update_user_data(
       updated_at: Set(updated_at),
       ..Default::default()
     };
-    match wl_users::Entity::update(model).exec(&state.conn).await {
+    match active_user.update(&state.conn).await {
       Ok(_) => Ok(true),
       Err(_) => Err(Code::Error),
     }
   } else {
-    let model = wl_users::ActiveModel {
+    let active_user = wl_users::ActiveModel {
       display_name: Set(display_name.unwrap()),
       email: Set(email.unwrap()),
       password: Set(password.unwrap()),
@@ -213,30 +233,30 @@ pub async fn update_user_data(
       updated_at: Set(updated_at),
       ..Default::default()
     };
-    match wl_users::Entity::insert(model).exec(&state.conn).await {
+    match active_user.insert(&state.conn).await {
       Ok(_) => Ok(true),
       Err(_) => Err(Code::Error),
     }
   }
 }
 
-pub async fn delete_data(state: &AppState, table: &str, _lang: String) -> Result<bool, String> {
+pub async fn delete_data(state: &AppState, table: &str) -> Result<bool, Code> {
   match table {
     "Comment" => {
       wl_comment::Entity::delete_many()
         .exec(&state.conn)
         .await
-        .unwrap();
+        .map_err(AppError::from)?;
       Ok(true)
     }
     "Counter" => {
       wl_counter::Entity::delete_many()
         .exec(&state.conn)
         .await
-        .unwrap();
+        .map_err(AppError::from)?;
       Ok(true)
     }
     "User" => Ok(true),
-    _ => Err("".to_string()),
+    _ => Err(Code::Error),
   }
 }
