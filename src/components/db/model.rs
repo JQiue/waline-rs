@@ -30,6 +30,8 @@ mod datetime_utc_format {
     match s {
       Some(s) => {
         let dt = parse_datetime(&s).map_err(serde::de::Error::custom)?;
+        // let fmt =
+        //   DateTime::parse_from_str(&s, "%Y-%m-%d %H:%M:%S").map(|dt| dt.with_timezone(&Utc));
         Ok(Some(dt))
       }
       None => Ok(None),
@@ -52,8 +54,8 @@ mod datetime_utc_format {
         return Ok(dt);
       }
     }
-    tracing::debug!("无法解析时间格式: {}", s);
-    Err(format!("无法解析时间格式: {}", s))
+    tracing::debug!("Unable to parse time format: {}", s);
+    Err(format!("Unable to parse time format: {}", s))
   }
 }
 
