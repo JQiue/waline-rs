@@ -6,10 +6,7 @@ use std::{
 };
 
 use crate::{
-  components::{
-    article::ArticleComponent, comment::CommentComponent, db::DBComponent, ui::UIComponent,
-    user::UserComponent,
-  },
+  components::{article, comment, db, ui, user},
   config::Config,
   error::AppError,
 };
@@ -21,7 +18,6 @@ use actix_web::{
 };
 use sea_orm::{Database, DatabaseConnection};
 
-// 定义全局计数器
 #[derive(Debug)]
 pub struct RateLimiter {
   counter: Mutex<HashMap<String, (usize, Instant)>>,
@@ -70,13 +66,13 @@ async fn health_check() -> HttpResponse {
 pub fn config_app(cfg: &mut ServiceConfig) {
   cfg.service(
     web::scope("/api")
-      .configure(ArticleComponent::config)
-      .configure(CommentComponent::config)
-      .configure(UserComponent::config)
-      .configure(DBComponent::config)
+      .configure(article::config)
+      .configure(comment::config)
+      .configure(user::config)
+      .configure(db::config)
       .route("/health", web::get().to(health_check)),
   );
-  cfg.service(web::scope("/ui").configure(UIComponent::config));
+  cfg.service(web::scope("/ui").configure(ui::config));
   #[cfg(feature = "leancloud")]
   cfg.route("/", web::get().to(health_check));
 }

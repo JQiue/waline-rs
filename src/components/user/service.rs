@@ -174,7 +174,7 @@ pub async fn set_user_profile(
   Ok(res.is_ok())
 }
 
-/// 设置用户类型（todo）
+/// set user type（todo）
 pub async fn set_user_type(
   _state: &AppState,
   _user_id: i32,
@@ -183,7 +183,6 @@ pub async fn set_user_type(
   Err("todo".to_string())
 }
 
-/// 获取用户信息列表
 pub async fn get_user_info_list(state: &AppState, _page: Option<u32>) -> Result<Vec<Value>, Code> {
   let users = wl_users::Entity::find()
     .select_only()
@@ -236,7 +235,7 @@ pub async fn verification(state: &AppState, email: String, token: String) -> Res
   Err(Code::TokenExpired)
 }
 
-/// 设置 2fa（todo）
+/// set 2fa（todo）
 pub async fn set_2fa(_state: &AppState, _code: String, _secret: String) -> Result<bool, String> {
   Err("todo".to_string())
 }
