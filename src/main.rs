@@ -1,4 +1,5 @@
-use tracing::Level;
+use actix_web::web::ServiceConfig;
+use shuttle_actix_web::ShuttleActixWeb;
 
 mod app;
 mod components;
@@ -9,11 +10,7 @@ mod helpers;
 mod locales;
 mod response;
 
-#[actix_web::main]
-async fn main() -> Result<(), error::AppError> {
-  std::env::set_var("RUST_LOG", "error");
-  tracing_subscriber::fmt()
-    .with_max_level(Level::DEBUG)
-    .init();
-  app::start().await
+#[shuttle_runtime::main]
+async fn main() -> ShuttleActixWeb<impl FnOnce(&mut ServiceConfig) + Send + Clone + 'static> {
+  Ok(app::start().await.into())
 }

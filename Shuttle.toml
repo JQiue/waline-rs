@@ -1,0 +1,4 @@
+[deploy]
+include = ["assets/waline.sqlite", ".shuttle.env"]
+[build]
+assets = ["assets/waline.sqlite", ".shuttle.env"]

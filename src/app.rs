@@ -8,23 +8,22 @@ use std::{
 use crate::{
   components::{article, comment, db, ui, user},
   config::Config,
-  error::AppError,
 };
 use actix_cors::Cors;
 use actix_web::{
   middleware,
   web::{self, ServiceConfig},
-  App, HttpResponse, HttpServer,
+  HttpResponse,
 };
 use sea_orm::{Database, DatabaseConnection};
 
 #[derive(Debug)]
 pub struct RateLimiter {
-  counter: Mutex<HashMap<String, (usize, Instant)>>,
+  pub counter: Mutex<HashMap<String, (usize, Instant)>>,
 }
 
 impl RateLimiter {
-  fn new() -> Self {
+  pub fn new() -> Self {
     RateLimiter {
       counter: Mutex::new(HashMap::new()),
     }
@@ -73,33 +72,28 @@ pub fn config_app(cfg: &mut ServiceConfig) {
       .route("/health", web::get().to(health_check)),
   );
   cfg.service(web::scope("/ui").configure(ui::config));
-  #[cfg(feature = "leancloud")]
-  cfg.route("/", web::get().to(health_check));
 }
 
-pub async fn start() -> Result<(), AppError> {
-  let app_config = Config::from_env()?;
-  let db = Database::connect(app_config.database_url).await?;
-  db.ping().await?;
+pub async fn start() -> impl FnOnce(&mut ServiceConfig) + Send + Clone + 'static {
+  let app_config = Config::from_env().unwrap();
+  let conn = Database::connect(app_config.database_url).await.unwrap();
+  conn.ping().await.unwrap();
   let state = AppState {
     jwt_key: app_config.jwt_key,
-    conn: db,
+    conn,
     anonymous_avatar: "https://seccdn.libravatar.org/avatar/d41d8cd98f00b204e9800998ecf8427e"
       .to_string()
       .into(),
-    levels: app_config.levels,
     rate_limiter: Arc::new(RateLimiter::new()),
+    levels: app_config.levels,
   };
-  HttpServer::new(move || {
-    App::new()
-      .wrap(middleware::Logger::default())
-      .wrap(Cors::permissive())
-      .app_data(web::Data::new(state.clone()))
-      .configure(config_app)
-  })
-  .bind((app_config.host, app_config.port))?
-  .workers(app_config.workers)
-  .run()
-  .await
-  .map_err(AppError::from)
+  move |cfg: &mut ServiceConfig| {
+    cfg.service(
+      web::scope("")
+        .wrap(middleware::Logger::default())
+        .wrap(Cors::permissive())
+        .app_data(web::Data::new(state.clone()))
+        .configure(config_app),
+    );
+  }
 }

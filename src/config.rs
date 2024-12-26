@@ -4,31 +4,8 @@ use serde::Deserialize;
 
 use crate::error::AppError;
 
-fn default_workers() -> usize {
-  1
-}
-
-fn default_port() -> u16 {
-  #[cfg(feature = "leancloud")]
-  {
-    std::env::var("LEANCLOUD_APP_PORT")
-      .unwrap_or_else(|_| "8360".to_string())
-      .parse()
-      .unwrap_or(8360)
-  }
-  #[cfg(not(feature = "leancloud"))]
-  {
-    8360
-  }
-}
-
 #[derive(Deserialize, Debug)]
 pub struct Config {
-  #[serde(default = "default_workers")]
-  pub workers: usize,
-  pub host: String,
-  #[serde(default = "default_port")]
-  pub port: u16,
   pub database_url: String,
   pub jwt_key: String,
   pub site_name: String,
@@ -46,7 +23,8 @@ pub struct Config {
 
 impl Config {
   pub fn from_env() -> Result<Config, AppError> {
-    dotenvy::dotenv_override().ok();
+    dotenvy::from_filename_override(".shuttle.env").ok();
+    dotenvy::from_filename_override(".env").ok();
     envy::from_env().map_err(AppError::from)
   }
 }
