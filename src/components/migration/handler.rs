@@ -7,7 +7,7 @@ use serde_json::json;
 
 use crate::{
   app::AppState,
-  components::db::{model::*, service},
+  components::migration::{model::*, service},
   response::{Code, Response},
 };
 
@@ -173,7 +173,7 @@ pub async fn update_data(
     )
     .await
     {
-      Ok(_) => HttpResponse::Ok().json(Response::<()>::success(None, Some(&query.lang))),
+      Ok(()) => HttpResponse::Ok().json(Response::<()>::success(None, Some(&query.lang))),
       Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(&query.lang))),
     },
     _ => HttpResponse::Ok().json(Response::<()>::error(Code::Error, Some(&query.lang))),

@@ -196,7 +196,7 @@ pub async fn get_user_info_list(state: &AppState, _page: Option<u32>) -> Result<
 }
 
 pub async fn get_user_info(state: &AppState, email: Option<String>) -> Result<Value, Code> {
-  if let Some(user) = wl_users::Entity::find()
+  match wl_users::Entity::find()
     .filter(wl_users::Column::Email.eq(email))
     .select_only()
     .columns(wl_users::Column::iter().filter(|col| !matches!(col, wl_users::Column::Id)))
@@ -206,9 +206,8 @@ pub async fn get_user_info(state: &AppState, email: Option<String>) -> Result<Va
     .await
     .map_err(AppError::from)?
   {
-    Ok(user)
-  } else {
-    Err(Code::UserRegistered)
+    Some(data) => Ok(data),
+    None => Err(Code::Error),
   }
 }
 
