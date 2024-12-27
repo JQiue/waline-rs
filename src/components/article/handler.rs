@@ -1,7 +1,7 @@
+use crate::prelude::*;
 use crate::{
   app::AppState,
   components::article::{model::*, service},
-  response::Response,
 };
 
 use actix_web::{

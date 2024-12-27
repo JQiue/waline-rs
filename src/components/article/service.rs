@@ -1,8 +1,8 @@
 use sea_orm::{ActiveModelTrait, IntoActiveModel, Set};
 use serde_json::{json, Value};
 
-use crate::error::AppError;
-use crate::{app::AppState, components::article::model::*, entities::wl_counter, response::Code};
+use crate::prelude::*;
+use crate::{app::AppState, components::article::model::*, entities::wl_counter};
 
 pub async fn get_article(
   state: &AppState,
