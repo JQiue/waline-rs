@@ -15,8 +15,9 @@ use crate::{
   config::Config,
   entities::*,
   error::AppError,
-  helpers::email::{
-    extract_email_prefix, send_email_notification, CommentNotification, NotifyType,
+  helpers::{
+    avatar::get_avatar,
+    email::{send_email_notification, CommentNotification, NotifyType},
   },
   response::Code,
 };
@@ -51,7 +52,7 @@ pub async fn user_register(
     user.r#type = Set(format!(
       "verify:{}:{}",
       token,
-      utc_now().timestamp_millis() + 1 * 60 * 60 * 1000
+      utc_now().timestamp_millis() + 60 * 60 * 1000
     ));
     let url = format!(
       "http://{}/api/verification?token={}&email={}",
@@ -89,11 +90,6 @@ pub async fn user_login(
   if !result {
     return Err(Code::Error);
   }
-  let avatar = if let Some(prefix) = extract_email_prefix(user.email.clone()) {
-    format!("https://q1.qlogo.cn/g?b=qq&nk={}&s=100", prefix)
-  } else {
-    state.anonymous_avatar.to_string()
-  };
   let token =
     helpers::jwt::sign(user.email.clone(), state.jwt_key.clone(), 86400).map_err(AppError::from)?;
   let mail_md5 = helpers::hash::md5(user.email.as_bytes());
@@ -104,7 +100,7 @@ pub async fn user_login(
     "type": user.r#type,
     "label": user.label,
     "url": user.url,
-    "avatar": avatar,
+    "avatar": get_avatar(&user.email),
     "github": user.github,
     "twitter": user.twitter,
     "facebook": user.facebook,
@@ -127,11 +123,6 @@ pub async fn get_login_user_info(state: &AppState, token: String) -> Result<Valu
     .claims
     .data;
   let user = get_user(UserQueryBy::Email(email), &state.conn).await?;
-  let avatar = if let Some(prefix) = extract_email_prefix(user.email.clone()) {
-    format!("https://q1.qlogo.cn/g?b=qq&nk={}&s=100", prefix)
-  } else {
-    state.anonymous_avatar.to_string()
-  };
   let mail_md5 = helpers::hash::md5(user.email.as_bytes());
   Ok(json! ({
       "display_name": user.display_name,
@@ -139,7 +130,7 @@ pub async fn get_login_user_info(state: &AppState, token: String) -> Result<Valu
       "type": user.r#type,
       "label": user.label,
       "url": user.url,
-      "avatar": avatar,
+      "avatar": get_avatar(&user.email),
       "github": user.github,
       "twitter": user.twitter,
       "facebook": user.facebook,
