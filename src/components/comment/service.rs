@@ -15,7 +15,8 @@ use crate::{
   entities::wl_comment,
   error::AppError,
   helpers::{
-    email::{extract_email_prefix, send_email_notification, CommentNotification, NotifyType},
+    avatar::get_avatar,
+    email::{send_email_notification, CommentNotification, NotifyType},
     markdown::render_md_to_html,
     ua,
   },
@@ -83,15 +84,11 @@ pub async fn get_comment_info(
       .map_err(AppError::from)?;
     let level;
     if let Some(levels) = &state.levels {
-      level = Some(get_level(c as usize, &levels));
+      level = Some(get_level(c as usize, levels));
     } else {
       level = None;
     }
-    let mut parrent_data_entry = build_data_entry(
-      parrent_comment.clone(),
-      state.anonymous_avatar.to_string(),
-      level,
-    );
+    let mut parrent_data_entry = build_data_entry(parrent_comment.clone(), level);
     if let Some(user_id) = parrent_data_entry.user_id {
       let user = get_user(UserQueryBy::Id(user_id as u32), &state.conn).await?;
       parrent_data_entry.label = user.label;
@@ -116,21 +113,21 @@ pub async fn get_comment_info(
         .map_err(AppError::from)?;
       let level;
       if let Some(levels) = &state.levels {
-        level = Some(get_level(c as usize, &levels));
+        level = Some(get_level(c as usize, levels));
       } else {
         level = None;
       }
-
-      let mut subcomment_data_entry = build_data_entry(
-        subcomment.clone(),
-        state.anonymous_avatar.to_string(),
-        level,
-      );
+      let mut subcomment_data_entry = build_data_entry(subcomment.clone(), level);
       if let Some(user_id) = subcomment_data_entry.user_id {
         let user = get_user(UserQueryBy::Id(user_id as u32), &state.conn).await?;
         subcomment_data_entry.label = user.label;
         subcomment_data_entry.r#type = Some(user.r#type);
       }
+      subcomment_data_entry.reply_user = Some(json!({
+        "avatar": get_avatar(&parrent_comment.mail.clone().unwrap_or("default".to_owned())),
+        "link": parrent_comment.link,
+        "nick": parrent_comment.nick,
+      }));
       parrent_data_entry.children.push(subcomment_data_entry)
     }
     data.push(parrent_data_entry)
@@ -178,8 +175,7 @@ pub async fn get_comment_info_by_admin(
   }
   let mut data = vec![];
   for comment in comments.iter() {
-    let mut data_entry =
-      build_data_entry(comment.clone(), state.anonymous_avatar.to_string(), None);
+    let mut data_entry = build_data_entry(comment.clone(), None);
     if let Some(user_id) = data_entry.user_id {
       let user = get_user(UserQueryBy::Id(user_id as u32), &state.conn)
         .await
@@ -243,20 +239,14 @@ pub async fn create_comment(
     data["mail"] = json!(user.email);
     data["type"] = json!(user.r#type);
     data["user_id"] = json!(user.id);
-    avatar = if let Some(prefix) = extract_email_prefix(email.clone()) {
-      format!("https://q1.qlogo.cn/g?b=qq&nk={}&s=100", prefix)
-    } else {
-      state.anonymous_avatar.to_string()
-    };
+    avatar = get_avatar(&user.email);
     if user.r#type == "administrator" {
       is_admin = true;
     }
   }
   let app_config = Config::from_env().unwrap();
-  if app_config.comment_audit.is_some() {
-    if app_config.comment_audit.unwrap() {
-      new_comment.status = Set("waiting".to_string());
-    }
+  if app_config.comment_audit.is_some() && app_config.comment_audit.unwrap() {
+    new_comment.status = Set("waiting".to_string());
   }
   if is_admin {
     new_comment.status = Set("approved".to_string());
@@ -394,11 +384,7 @@ pub async fn update_comment(
       &state.conn,
     )
     .await?;
-    let avatar = if let Some(prefix) = extract_email_prefix(user.email.clone()) {
-      format!("https://q1.qlogo.cn/g?b=qq&nk={}&s=100", prefix)
-    } else {
-      state.anonymous_avatar.to_string()
-    };
+    let avatar = get_avatar(&user.email);
     let mut data = json!({
       "addr":"",
       "avatar": avatar,
