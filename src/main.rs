@@ -7,7 +7,9 @@ mod entities;
 mod error;
 mod helpers;
 mod locales;
+mod prelude;
 mod response;
+mod traits;
 
 #[actix_web::main]
 async fn main() -> Result<(), error::AppError> {
