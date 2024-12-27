@@ -111,22 +111,20 @@ async fn create_comment(
   let pass = if let Ok(token) = extract_token(&req) {
     if jwt::verify::<String>(token.clone(), state.jwt_key.clone()).is_err() {
       false
+    } else if is_admin_user(
+      jwt::verify::<String>(token, state.jwt_key.clone())
+        .unwrap()
+        .claims
+        .data,
+      &state.conn,
+    )
+    .await
+    .unwrap()
+    {
+      is_admin = true;
+      true
     } else {
-      if is_admin_user(
-        jwt::verify::<String>(token, state.jwt_key.clone())
-          .unwrap()
-          .claims
-          .data,
-        &state.conn,
-      )
-      .await
-      .unwrap()
-      {
-        is_admin = true;
-        true
-      } else {
-        false
-      }
+      false
     }
   } else {
     let client_ip = req
