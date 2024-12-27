@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{
-  components::{article, comment, db, ui, user},
+  components::{article, comment, migration, ui, user},
   config::Config,
 };
 use actix_cors::Cors;
@@ -68,7 +68,7 @@ pub fn config_app(cfg: &mut ServiceConfig) {
       .configure(article::config)
       .configure(comment::config)
       .configure(user::config)
-      .configure(db::config)
+      .configure(migration::config)
       .route("/health", web::get().to(health_check)),
   );
   cfg.service(web::scope("/ui").configure(ui::config));

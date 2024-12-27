@@ -126,7 +126,6 @@ pub async fn set_user_type(
   }
 }
 
-/// 获取用户信息
 #[get("/user")]
 pub async fn get_user_info(state: Data<AppState>, query: Query<GetUserQuery>) -> HttpResponse {
   let Query(GetUserQuery { email, lang, page }) = query;
@@ -150,7 +149,7 @@ pub async fn get_user_info(state: Data<AppState>, query: Query<GetUserQuery>) ->
   } else {
     match service::get_user_info(&state, email).await {
       Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(&lang))),
-      Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(&lang))),
+      Err(_) => HttpResponse::Ok().json(Response::<()>::success(None, Some(&lang))),
     }
   }
 }

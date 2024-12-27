@@ -8,7 +8,9 @@ mod entities;
 mod error;
 mod helpers;
 mod locales;
+mod prelude;
 mod response;
+mod traits;
 
 #[shuttle_runtime::main]
 async fn main() -> ShuttleActixWeb<impl FnOnce(&mut ServiceConfig) + Send + Clone + 'static> {

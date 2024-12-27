@@ -2,6 +2,6 @@
 
 pub mod article;
 pub mod comment;
-pub mod db;
+pub mod migration;
 pub mod ui;
 pub mod user;

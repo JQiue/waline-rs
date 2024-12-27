@@ -1,3 +1,6 @@
+use crate::components::user::model::get_user;
+use crate::prelude::*;
+
 use crate::{
   app::AppState,
   components::{
@@ -186,7 +189,7 @@ pub async fn create_user_data(
 
 pub async fn update_user_data(
   state: &AppState,
-  object_id: Option<u32>,
+  _object_id: Option<u32>,
   display_name: Option<String>,
   password: Option<String>,
   email: Option<String>,
@@ -196,32 +199,39 @@ pub async fn update_user_data(
   two_factor_auth: Option<String>,
   created_at: Option<DateTime<Utc>>,
   updated_at: Option<DateTime<Utc>>,
-) -> Result<bool, Code> {
+) -> Result<(), Code> {
   if has_user(
     UserQueryBy::Email(email.clone().unwrap_or("".to_string())),
     &state.conn,
   )
   .await?
   {
-    let active_user = wl_users::ActiveModel {
-      id: Set(object_id.unwrap()),
-      display_name: Set(display_name.unwrap()),
-      email: Set(email.unwrap()),
-      password: Set(password.unwrap()),
-      r#type: Set(r#type.unwrap()),
-      label: Set(label),
-      url: Set(url),
-      two_factor_auth: Set(two_factor_auth),
-      created_at: Set(created_at),
-      updated_at: Set(updated_at),
-      ..Default::default()
-    };
-    match active_user.update(&state.conn).await {
-      Ok(_) => Ok(true),
+    let mut active_user = get_user(
+      UserQueryBy::Email(email.clone().unwrap_or("".to_string())),
+      &state.conn,
+    )
+    .await?
+    .into_active_model();
+    active_user.display_name = Set(display_name.unwrap());
+    active_user.email = Set(email.unwrap());
+    active_user.password = Set(password.unwrap());
+    active_user.r#type = Set(r#type.unwrap());
+    active_user.label = Set(label);
+    active_user.url = Set(url);
+    active_user.two_factor_auth = Set(two_factor_auth);
+    active_user.created_at = Set(created_at);
+    active_user.updated_at = Set(updated_at);
+    match active_user
+      .update(&state.conn)
+      .await
+      .log_err()
+      .map_err(AppError::from)
+    {
+      Ok(_) => Ok(()),
       Err(_) => Err(Code::Error),
     }
   } else {
-    let active_user = wl_users::ActiveModel {
+    match (wl_users::ActiveModel {
       display_name: Set(display_name.unwrap()),
       email: Set(email.unwrap()),
       password: Set(password.unwrap()),
@@ -232,9 +242,12 @@ pub async fn update_user_data(
       created_at: Set(created_at),
       updated_at: Set(updated_at),
       ..Default::default()
-    };
-    match active_user.insert(&state.conn).await {
-      Ok(_) => Ok(true),
+    }
+    .insert(&state.conn)
+    .await
+    .log_err())
+    {
+      Ok(_) => Ok(()),
       Err(_) => Err(Code::Error),
     }
   }
