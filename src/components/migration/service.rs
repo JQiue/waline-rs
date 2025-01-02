@@ -1,3 +1,4 @@
+use crate::components::migration::model::CommentData;
 use crate::components::user::model::get_user;
 use crate::prelude::*;
 
@@ -12,33 +13,36 @@ use crate::{
   response::Code,
 };
 use chrono::{DateTime, Utc};
-use sea_orm::{ActiveModelTrait, EntityTrait, IntoActiveModel, Iterable, QuerySelect, Set};
+use sea_orm::{ActiveModelTrait, EntityTrait, IntoActiveModel, Set};
 use serde_json::{json, Value};
+
+use super::model::{CounterData, UserData};
 
 pub async fn export_data(state: &AppState, _lang: String) -> Result<Value, String> {
   let comments = wl_comment::Entity::find()
-    .select_only()
-    .columns(wl_comment::Column::iter().filter(|col| !matches!(col, wl_comment::Column::Id)))
-    .column_as(wl_comment::Column::Id, "objectId")
-    .into_json()
+    .into_partial_model::<CommentData>()
     .all(&state.conn)
     .await
+    .log_err()
     .unwrap();
   let counters = wl_counter::Entity::find()
-    .select_only()
-    .columns(wl_counter::Column::iter().filter(|col| !matches!(col, wl_counter::Column::Id)))
-    .column_as(wl_counter::Column::Id, "objectId")
-    .into_json()
+    .into_partial_model::<CounterData>()
     .all(&state.conn)
     .await
+    .log_err()
     .unwrap();
   let users = wl_users::Entity::find()
-    .select_only()
-    .columns(wl_users::Column::iter().filter(|col| !matches!(col, wl_users::Column::Id)))
-    .column_as(wl_users::Column::Id, "objectId")
-    .into_json()
+    // .select_only()
+    // .columns(wl_users::Column::iter().filter(|col| !matches!(col, wl_users::Column::Id)))
+    // .column_as(wl_users::Column::Id, "objectId")
+    // .into_json()
+    // .all(&state.conn)
+    // .await
+    // .unwrap();
+    .into_partial_model::<UserData>()
     .all(&state.conn)
     .await
+    .log_err()
     .unwrap();
   let data = json!({
       "type": "waline",
@@ -51,7 +55,6 @@ pub async fn export_data(state: &AppState, _lang: String) -> Result<Value, Strin
         "Users": users,
       }
   });
-
   Ok(data)
 }
 
