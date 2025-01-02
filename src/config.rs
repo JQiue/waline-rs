@@ -30,7 +30,7 @@ pub struct Config {
   #[serde(default = "default_port")]
   pub port: u16,
   pub database_url: String,
-  pub jwt_key: String,
+  pub jwt_token: String,
   pub site_name: String,
   pub site_url: String,
   pub smtp_service: Option<String>,

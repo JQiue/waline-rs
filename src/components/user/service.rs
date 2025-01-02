@@ -91,7 +91,7 @@ pub async fn user_login(
     return Err(Code::Error);
   }
   let token =
-    helpers::jwt::sign(user.email.clone(), state.jwt_key.clone(), 86400).map_err(AppError::from)?;
+    helpers::jwt::sign(user.email.clone(), state.jwt_token.clone(), 86400).map_err(AppError::from)?;
   let mail_md5 = helpers::hash::md5(user.email.as_bytes());
   let data = json!({
     "display_name": user.display_name,
@@ -118,7 +118,7 @@ pub async fn user_login(
 }
 
 pub async fn get_login_user_info(state: &AppState, token: String) -> Result<Value, Code> {
-  let email = helpers::jwt::verify::<String>(token, state.jwt_key.clone())
+  let email = helpers::jwt::verify::<String>(token, state.jwt_token.clone())
     .map_err(AppError::from)?
     .claims
     .data;
@@ -151,7 +151,7 @@ pub async fn set_user_profile(
   url: Option<String>,
   _password: Option<String>,
 ) -> Result<bool, Code> {
-  let email = helpers::jwt::verify::<String>(token, state.jwt_key.to_string())
+  let email = helpers::jwt::verify::<String>(token, state.jwt_token.to_string())
     .map_err(AppError::from)?
     .claims
     .data;
