@@ -52,8 +52,8 @@ pub async fn get_comment_info(
     .filter(wl_comment::Column::Status.is_not_in(["waiting", "spam"]));
   if token.is_ok() {
     let token = token.unwrap();
-    if jwt::verify::<String>(token.clone(), state.clone().jwt_key).is_ok() {
-      let email = jwt::verify::<String>(token, state.clone().jwt_key)
+    if jwt::verify::<String>(token.clone(), state.clone().jwt_token).is_ok() {
+      let email = jwt::verify::<String>(token, state.clone().jwt_token)
         .unwrap()
         .claims
         .data;
@@ -185,7 +185,6 @@ pub async fn get_comment_info_by_admin(
     }
     data.push(data_entry);
   }
-  tracing::debug!("{:#?}", data);
   Ok(json!({
     "data": data,
     "page": page,
@@ -196,8 +195,6 @@ pub async fn get_comment_info_by_admin(
   }))
 }
 
-/// create comment
-/// 逻辑是先验证 jwt，如果 jwt 正确，则直接插入，否则需要验证评论是否重复，不重复则插入
 pub async fn create_comment(
   state: &AppState,
   comment: String,
@@ -212,7 +209,7 @@ pub async fn create_comment(
   lang: Option<String>,
 ) -> Result<Value, Code> {
   let html_output = render_md_to_html(&comment);
-  let mut avatar = state.anonymous_avatar.to_string();
+  let mut avatar = get_avatar("anonymous");
   let mut new_comment = create_comment_model(
     None,
     comment,
@@ -361,7 +358,7 @@ pub async fn update_comment(
   if is_anonymous(id, &state.conn).await? {
     let data = json!({
       "addr":"",
-      "avatar": state.anonymous_avatar.to_string(),
+      "avatar": get_avatar("anonymous"),
       "browser": browser,
       "comment": html_output,
       "ip": new_comment.ip,
@@ -384,10 +381,9 @@ pub async fn update_comment(
       &state.conn,
     )
     .await?;
-    let avatar = get_avatar(&user.email);
     let mut data = json!({
       "addr":"",
-      "avatar": avatar,
+      "avatar": get_avatar(&user.email),
       "browser": browser,
       "comment": html_output,
       "ip": new_comment.ip,

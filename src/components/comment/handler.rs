@@ -60,7 +60,8 @@ async fn get_comment_info(
       return HttpResponse::Ok().json(Response::<()>::error(Code::Error, Some(&lang)));
     }
     let token = extract_token(&req).unwrap();
-    let email = match jwt::verify::<String>(token, state.jwt_key.clone()).map_err(AppError::from) {
+    let email = match jwt::verify::<String>(token, state.jwt_token.clone()).map_err(AppError::from)
+    {
       Ok(token_data) => token_data.claims.data,
       Err(err) => return HttpResponse::Ok().json(Response::<()>::error(err.into(), Some(&lang))),
     };
@@ -109,10 +110,10 @@ async fn create_comment(
   let app_config = Config::from_env().unwrap();
   let mut is_admin = false;
   let pass = if let Ok(token) = extract_token(&req) {
-    if jwt::verify::<String>(token.clone(), state.jwt_key.clone()).is_err() {
+    if jwt::verify::<String>(token.clone(), state.jwt_token.clone()).is_err() {
       false
     } else if is_admin_user(
-      jwt::verify::<String>(token, state.jwt_key.clone())
+      jwt::verify::<String>(token, state.jwt_token.clone())
         .unwrap()
         .claims
         .data,

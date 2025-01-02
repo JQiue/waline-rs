@@ -118,7 +118,6 @@ fn get_thresholds(levels: &str) -> Vec<usize> {
   if !is_strictly_increasing(&thresholds) {
     return vec![0, 10, 20, 50, 100, 200];
   }
-  tracing::debug!("{:?}", thresholds);
   thresholds
 }
 
