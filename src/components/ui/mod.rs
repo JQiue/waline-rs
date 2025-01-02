@@ -1,6 +1,6 @@
-mod handler;
+pub mod handler;
 mod model;
-mod service;
+pub mod service;
 
 use actix_web::web::ServiceConfig;
 
