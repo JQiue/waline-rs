@@ -2,7 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.6.1]
+## [0.7.0] - 2025-01-03
+
+### 🚀 Features
+
+- Impl mail vertification for registered users
+- Impl data migration
+- Add traits to print Result Err enum
+- Use multiavatar as the default avatar
+- Add redirect processing to the ui
+
+### 🐛 Bug Fixes
+
+- Fixed time formatting when importing data and inability to import comments
+- Fix migrate data error
+- Fixed date and time handling when data is migrated
+
+### 🚜 Refactor
+
+- Rewrite code
+- Rewrite use statement
+
+### ⚙️ Miscellaneous Tasks
+
+- Fix leancloud health check
+- Update release.yml
+- Update .gitignore
+- Assigned copyright
+- Update .gitignore
+- Adjust program internal configuration variables
+- Change how to get the profile picture
+- Update README.md
+
+## [0.6.1] - 2024-12-22
 
 ### 🚀 Features
 
@@ -18,10 +50,14 @@ All notable changes to this project will be documented in this file.
 
 - Update README.md
 - Enhance release workflow for multiple build targets
+- Release v0.6.0
 - Specify CHANGELGO.md
 - Use rustls to solve musl compilation issues and add LeanCloud feature for targeted deployment
 - Release v0.6.1
 - Change to rustls for lettre
+- Update ci
+- Disable default features for lettre
+- Fix ci
 
 ## [0.5.0] - 2024-12-20
 
