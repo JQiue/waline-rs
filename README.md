@@ -1,4 +1,16 @@
-# waline-mini
+<div align="center">
+ <p><h1>waline-mini</h1></p>
+  <p><strong>A minimalist implementation of waline.</strong></p>
+  <p>
+
+![GitHub Release](https://img.shields.io/github/v/release/JQiue/waline-mini)
+![GitHub Issues or Pull Requests](https://img.shields.io/github/issues/JQiue/waline-mini)
+![GitHub commit activity](https://img.shields.io/github/commit-activity/t/JQiue/waline-mini)
+[![Version](https://img.shields.io/badge/rustc-1.75+-lightgray.svg)](https://blog.rust-lang.org/2023/12/28/Rust-1.75.0.html)
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/JQiue/waline-mini/total)
+![GitHub License](https://img.shields.io/github/license/JQiue/waline-mini)
+  </p>
+</div>
 
 ## Introduction
 
@@ -21,7 +33,9 @@ From [GitHub Releases](https://github.com/JQiue/waline-mini/releases) to downloa
 export HOST=127.0.0.1
 export PORT=8360
 export DATABASE_URL=sqlite:///path/to/waline.sqlite
-export JWT_KEY=your_secret_key
+export JWT_TOKEN=your_secret_key
+export SITE_NAME=your_site_name
+export SITE_URL=your_site_url
 
 # Start
 ./waline-mini
@@ -34,7 +48,7 @@ Configure waline-mini with environment variables:
 | HOST                 | listening host                                                                                                                                            | ✅       | -       |
 | PORT                 | listening port                                                                                                                                            | ✅       | -       |
 | DATABASE_URL         | SQLite and MySQL/MariaDB are supported. `protocol://username:password@host/database`                                                                      | ✅       | -       |
-| JWT_KEY              | A random string is used to generate the JWT Signature key                                                                                                 | ✅       | -       |
+| JWT_TOKEN            | A random string is used to generate the JWT Signature key                                                                                                 | ✅       | -       |
 | SITE_NAME            | Site name                                                                                                                                                 | ✅       | -       |
 | SITE_URL             | Site url                                                                                                                                                  | ✅       | -       |
 | SERVER_URL           | Custom Waline server address                                                                                                                              |         | auto    |
@@ -56,13 +70,14 @@ Configure waline-mini with environment variables:
 | Pageview Counter           | Fully Available  | Stable      |
 | Article Reactions          | Fully Available  | Stable      |
 | Comment Format Support     | Fully Available  | Stable      |
-| User label                 | Fully Available  | Stable      |
+| User Label                 | Fully Available  | Stable      |
 | I18n Support               | Nearly Available | In Progress |
 | Email Notification         | Nearly Available | In Progress |
 | Security: XSS              | Fully Available  | Stable      |
 | Security: Frequency Limit  | Fully Available  | Stable      |
 | Security: Prevent flooding | Fully Available  | Stable      |
 | Security: Comment Review   | Fully Available  | Stable      |
+| Data migration             | Fully Available  | Stable      |
 
 ## References
 
