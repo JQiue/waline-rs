@@ -32,13 +32,6 @@ pub async fn export_data(state: &AppState, _lang: String) -> Result<Value, Strin
     .log_err()
     .unwrap();
   let users = wl_users::Entity::find()
-    // .select_only()
-    // .columns(wl_users::Column::iter().filter(|col| !matches!(col, wl_users::Column::Id)))
-    // .column_as(wl_users::Column::Id, "objectId")
-    // .into_json()
-    // .all(&state.conn)
-    // .await
-    // .unwrap();
     .into_partial_model::<UserData>()
     .all(&state.conn)
     .await
@@ -68,7 +61,7 @@ pub async fn create_comment_data(
   status: Option<String>,
   ua: Option<String>,
   url: Option<String>,
-  create_at: Option<chrono::DateTime<Utc>>,
+  created_at: Option<chrono::DateTime<Utc>>,
   updated_at: Option<chrono::DateTime<Utc>>,
   inserted_at: Option<chrono::DateTime<Utc>>,
 ) -> Result<Value, Code> {
@@ -82,7 +75,7 @@ pub async fn create_comment_data(
     status: Set(status.unwrap()),
     ua: Set(ua),
     url: Set(url),
-    created_at: Set(create_at),
+    created_at: Set(created_at),
     updated_at: Set(updated_at),
     ..Default::default()
   }
@@ -176,7 +169,7 @@ pub async fn create_user_data(
     display_name: Set(display_name.unwrap()),
     email: Set(email.unwrap()),
     password: Set(password.unwrap()),
-    r#type: Set(r#type.unwrap()),
+    user_type: Set(r#type.unwrap()),
     label: Set(label),
     url: Set(url),
     two_factor_auth: Set(two_factor_auth),
@@ -218,7 +211,7 @@ pub async fn update_user_data(
     active_user.display_name = Set(display_name.unwrap());
     active_user.email = Set(email.unwrap());
     active_user.password = Set(password.unwrap());
-    active_user.r#type = Set(r#type.unwrap());
+    active_user.user_type = Set(r#type.unwrap());
     active_user.label = Set(label);
     active_user.url = Set(url);
     active_user.two_factor_auth = Set(two_factor_auth);
@@ -238,7 +231,7 @@ pub async fn update_user_data(
       display_name: Set(display_name.unwrap()),
       email: Set(email.unwrap()),
       password: Set(password.unwrap()),
-      r#type: Set(r#type.unwrap()),
+      user_type: Set(r#type.unwrap()),
       label: Set(label),
       url: Set(url),
       two_factor_auth: Set(two_factor_auth),

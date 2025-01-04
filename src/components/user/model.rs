@@ -68,7 +68,7 @@ pub async fn is_first_user(conn: &DatabaseConnection) -> Result<bool, Code> {
 pub async fn is_admin_user(email: String, conn: &DatabaseConnection) -> Result<bool, Code> {
   let user = wl_users::Entity::find()
     .filter(wl_users::Column::Email.eq(email))
-    .filter(wl_users::Column::Type.eq("administrator"))
+    .filter(wl_users::Column::UserType.eq("administrator"))
     .one(conn)
     .await
     .map_err(AppError::from)?;

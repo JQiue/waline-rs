@@ -45,7 +45,6 @@ mod datetime_utc_format {
     }
   }
 }
-
 #[derive(Deserialize)]
 pub struct CreateDataBody {
   pub comment: Option<String>,
@@ -56,11 +55,11 @@ pub struct CreateDataBody {
   pub status: Option<String>,
   pub ua: Option<String>,
   pub url: Option<String>,
-  #[serde(rename = "insertedAt", default, with = "datetime_utc_format")]
+  #[serde(default, with = "datetime_utc_format")]
   pub inserted_at: Option<chrono::DateTime<Utc>>,
-  #[serde(rename = "createdAt", default, with = "datetime_utc_format")]
+  #[serde(default, with = "datetime_utc_format")]
   pub created_at: Option<chrono::DateTime<Utc>>,
-  #[serde(rename = "updatedAt", default, with = "datetime_utc_format")]
+  #[serde(default, with = "datetime_utc_format")]
   pub updated_at: Option<chrono::DateTime<Utc>>,
   #[serde(rename = "objectId")]
   pub object_id: Option<u32>,
@@ -103,9 +102,9 @@ pub struct UpdateDataBody {
   pub password: Option<String>,
   pub r#type: Option<String>,
   pub url: Option<String>,
-  #[serde(rename = "createdAt", default, with = "datetime_utc_format")]
+  #[serde(default, with = "datetime_utc_format")]
   pub created_at: Option<chrono::DateTime<Utc>>,
-  #[serde(rename = "updatedAt", default, with = "datetime_utc_format")]
+  #[serde(default, with = "datetime_utc_format")]
   pub updated_at: Option<chrono::DateTime<Utc>>,
   pub pid: Option<i32>,
   pub rid: Option<i32>,
@@ -198,6 +197,9 @@ pub struct UserData {
   pub google: Option<String>,
   pub weibo: Option<String>,
   pub qq: Option<String>,
+  #[sea_orm(from_expr = "Expr::col(wl_users::Column::UserType)")]
+  #[serde(rename = "type")]
+  pub user_type: String,
   #[sea_orm(from_expr = "Expr::col(wl_users::Column::TwoFactorAuth)")]
   #[serde(rename = "2fa")]
   pub two_factor_auth: Option<String>,

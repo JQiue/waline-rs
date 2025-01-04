@@ -92,7 +92,7 @@ pub async fn get_comment_info(
     if let Some(user_id) = parrent_data_entry.user_id {
       let user = get_user(UserQueryBy::Id(user_id as u32), &state.conn).await?;
       parrent_data_entry.label = user.label;
-      parrent_data_entry.r#type = Some(user.r#type);
+      parrent_data_entry.r#type = Some(user.user_type);
     }
     let subcomments = wl_comment::Entity::find()
       .filter(wl_comment::Column::Url.contains(path.clone()))
@@ -121,7 +121,7 @@ pub async fn get_comment_info(
       if let Some(user_id) = subcomment_data_entry.user_id {
         let user = get_user(UserQueryBy::Id(user_id as u32), &state.conn).await?;
         subcomment_data_entry.label = user.label;
-        subcomment_data_entry.r#type = Some(user.r#type);
+        subcomment_data_entry.r#type = Some(user.user_type);
       }
       subcomment_data_entry.reply_user = Some(json!({
         "avatar": get_avatar(&parrent_comment.mail.clone().unwrap_or("default".to_owned())),
@@ -181,7 +181,7 @@ pub async fn get_comment_info_by_admin(
         .await
         .unwrap();
       data_entry.label = user.label;
-      data_entry.r#type = Some(user.r#type);
+      data_entry.r#type = Some(user.user_type);
     }
     data.push(data_entry);
   }
@@ -234,10 +234,10 @@ pub async fn create_comment(
     new_comment.user_id = Set(Some(user.id as i32));
     data["label"] = json!(user.label);
     data["mail"] = json!(user.email);
-    data["type"] = json!(user.r#type);
+    data["type"] = json!(user.user_type);
     data["user_id"] = json!(user.id);
     avatar = get_avatar(&user.email);
-    if user.r#type == "administrator" {
+    if user.user_type == "administrator" {
       is_admin = true;
     }
   }
@@ -389,7 +389,7 @@ pub async fn update_comment(
       "ip": new_comment.ip,
       "label": user.label,
       "mail": user.email.clone(),
-      "type": user.r#type,
+      "type": user.user_type,
       "user_id": new_comment.user_id,
       "like": like,
       "link": new_comment.link,

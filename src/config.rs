@@ -22,6 +22,10 @@ fn default_port() -> u16 {
   }
 }
 
+fn default_ipqps() -> u64 {
+  60
+}
+
 #[derive(Deserialize, Debug)]
 pub struct Config {
   #[serde(default = "default_workers")]
@@ -40,7 +44,8 @@ pub struct Config {
   pub smtp_pass: Option<String>,
   pub author_email: Option<String>,
   pub levels: Option<String>,
-  pub ipqps: Option<u64>,
+  #[serde(default = "default_ipqps")]
+  pub ipqps: u64,
   pub comment_audit: Option<bool>,
 }
 

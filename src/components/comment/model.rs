@@ -162,14 +162,13 @@ pub fn build_data_entry(comment: wl_comment::Model, level: Option<usize>) -> Dat
   }
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct GetCommentQuery {
   pub lang: String,
   pub path: Option<String>,
-  #[serde(rename = "pageSize")]
   pub page_size: Option<i32>,
   pub page: i32,
-  #[serde(rename = "sortBy")]
   pub sort_by: Option<String>,
   pub r#type: Option<String>,
   pub owner: Option<String>,

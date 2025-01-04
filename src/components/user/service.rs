@@ -45,11 +45,11 @@ pub async fn user_register(
     ..Default::default()
   };
   if is_first_user(&state.conn).await? {
-    user.r#type = Set("administrator".to_string());
+    user.user_type = Set("administrator".to_string());
   } else {
     let app_config = Config::from_env().unwrap();
     let token = uuid::uuid(&Alphabet::NUMBERS, 4);
-    user.r#type = Set(format!(
+    user.user_type = Set(format!(
       "verify:{}:{}",
       token,
       utc_now().timestamp_millis() + 60 * 60 * 1000
@@ -90,14 +90,14 @@ pub async fn user_login(
   if !result {
     return Err(Code::Error);
   }
-  let token =
-    helpers::jwt::sign(user.email.clone(), state.jwt_token.clone(), 86400).map_err(AppError::from)?;
+  let token = helpers::jwt::sign(user.email.clone(), state.jwt_token.clone(), 86400)
+    .map_err(AppError::from)?;
   let mail_md5 = helpers::hash::md5(user.email.as_bytes());
   let data = json!({
     "display_name": user.display_name,
     "email": user.email,
     "password": null,
-    "type": user.r#type,
+    "type": user.user_type,
     "label": user.label,
     "url": user.url,
     "avatar": get_avatar(&user.email),
@@ -127,7 +127,7 @@ pub async fn get_login_user_info(state: &AppState, token: String) -> Result<Valu
   Ok(json! ({
       "display_name": user.display_name,
       "email": user.email,
-      "type": user.r#type,
+      "type": user.user_type,
       "label": user.label,
       "url": user.url,
       "avatar": get_avatar(&user.email),
@@ -206,16 +206,16 @@ pub async fn verification(state: &AppState, email: String, token: String) -> Res
   let user = get_user(UserQueryBy::Email(email), &state.conn)
     .await
     .map_err(AppError::from)?;
-  tracing::debug!("type: {}", user.r#type);
+  tracing::debug!("type: {}", user.user_type);
   let reg = Regex::new(r"^verify:(\d{4}):(\d+)$").unwrap();
   tracing::debug!("reg {}", reg);
-  let captures = reg.captures(&user.r#type).unwrap();
+  let captures = reg.captures(&user.user_type).unwrap();
   tracing::debug!("captures {:#?}", captures);
   if token == captures.get(1).unwrap().as_str()
     && utc_now().timestamp_millis() < captures.get(2).unwrap().as_str().parse::<i64>().unwrap()
   {
     let mut active_user = user.into_active_model();
-    active_user.r#type = Set("guest".to_string());
+    active_user.user_type = Set("guest".to_string());
     active_user
       .update(&state.conn)
       .await

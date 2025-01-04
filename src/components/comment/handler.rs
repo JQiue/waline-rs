@@ -23,6 +23,7 @@ async fn get_comment_info(
   state: Data<AppState>,
   query: Query<GetCommentQuery>,
 ) -> HttpResponse {
+  tracing::debug!("xxx {:?}", query);
   let Query(GetCommentQuery {
     lang,
     path,
@@ -134,7 +135,7 @@ async fn create_comment(
       .unwrap_or_default();
     state
       .rate_limiter
-      .check_and_update(&client_ip, app_config.ipqps.unwrap_or(60), 1)
+      .check_and_update(&client_ip, app_config.ipqps, 1)
   };
   if !pass {
     return HttpResponse::Ok().json(Response::<()>::error(Code::FrequencyLimited, Some(&lang)));

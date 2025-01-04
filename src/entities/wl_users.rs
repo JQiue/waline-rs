@@ -11,7 +11,8 @@ pub struct Model {
   pub display_name: String,
   pub email: String,
   pub password: String,
-  pub r#type: String,
+  #[sea_orm(column_name = "type")]
+  pub user_type: String,
   pub label: Option<String>,
   pub url: Option<String>,
   pub avatar: Option<String>,
