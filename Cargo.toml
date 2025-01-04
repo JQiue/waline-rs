@@ -41,7 +41,7 @@ default = []
 leancloud = []
 
 [package.metadata.release]
-push = false
+push = true
 pre-release-hook = [
   "git",
   "cliff",
