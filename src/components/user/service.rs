@@ -149,7 +149,8 @@ pub async fn set_user_profile(
   display_name: Option<String>,
   label: Option<String>,
   url: Option<String>,
-  _password: Option<String>,
+  password: Option<String>,
+  avatar: Option<String>,
 ) -> Result<bool, Code> {
   let email = helpers::jwt::verify::<String>(token, state.jwt_token.to_string())
     .map_err(AppError::from)?
@@ -158,9 +159,22 @@ pub async fn set_user_profile(
   let mut active_user = get_user(UserQueryBy::Email(email), &state.conn)
     .await?
     .into_active_model();
-  active_user.display_name = Set(display_name.unwrap_or("".to_string()));
-  active_user.label = Set(label);
-  active_user.url = Set(url);
+  if let Some(display_name) = display_name {
+    active_user.display_name = Set(display_name);
+  }
+  if let Some(label) = label {
+    active_user.label = Set(Some(label));
+  }
+  if let Some(url) = url {
+    active_user.url = Set(Some(url));
+  }
+  if let Some(avatar) = avatar {
+    active_user.avatar = Set(Some(avatar));
+  }
+  if let Some(password) = password {
+    let hashed = helpers::hash::bcrypt(password.as_bytes()).map_err(|_| Code::Error)?;
+    active_user.password = Set(hashed);
+  }
   let res = active_user.update(&state.conn).await;
   Ok(res.is_ok())
 }

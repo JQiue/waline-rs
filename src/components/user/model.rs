@@ -30,7 +30,7 @@ pub struct SetUserProfileBody {
   pub label: Option<String>,
   pub url: Option<String>,
   pub password: Option<String>,
-  pub _avatar: Option<String>,
+  pub avatar: Option<String>,
 }
 
 #[derive(Deserialize)]

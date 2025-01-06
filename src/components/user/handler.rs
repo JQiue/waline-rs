@@ -92,12 +92,14 @@ pub async fn set_user_profile(
     label,
     url,
     password,
-    _avatar: _,
+    avatar,
   }) = body;
 
   match extract_token(&req) {
     Ok(token) => {
-      match service::set_user_profile(&state, token, display_name, label, url, password).await {
+      match service::set_user_profile(&state, token, display_name, label, url, password, avatar)
+        .await
+      {
         Ok(_) => HttpResponse::Ok().json(Response::<()>::success(None, None)),
         Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),
       }
