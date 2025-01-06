@@ -13,7 +13,7 @@ use crate::{
   },
   config::Config,
   error::AppError,
-  helpers::header::extract_token,
+  helpers::header::{extract_ip, extract_token},
   response::{Code, Response},
 };
 
@@ -129,10 +129,7 @@ async fn create_comment(
       false
     }
   } else {
-    let client_ip = req
-      .peer_addr()
-      .map(|s| s.ip().to_string())
-      .unwrap_or_default();
+    let client_ip = extract_ip(&req);
     state
       .rate_limiter
       .check_and_update(&client_ip, app_config.ipqps, 1)
