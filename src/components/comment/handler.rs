@@ -23,7 +23,6 @@ async fn get_comment_info(
   state: Data<AppState>,
   query: Query<GetCommentQuery>,
 ) -> HttpResponse {
-  tracing::debug!("xxx {:?}", query);
   let Query(GetCommentQuery {
     lang,
     path,
@@ -110,6 +109,7 @@ async fn create_comment(
   }) = body;
   let app_config = Config::from_env().unwrap();
   let mut is_admin = false;
+  let client_ip = extract_ip(&req);
   let pass = if let Ok(token) = extract_token(&req) {
     if jwt::verify::<String>(token.clone(), state.jwt_token.clone()).is_err() {
       false
@@ -129,7 +129,6 @@ async fn create_comment(
       false
     }
   } else {
-    let client_ip = extract_ip(&req);
     state
       .rate_limiter
       .check_and_update(&client_ip, app_config.ipqps, 1)
@@ -155,6 +154,7 @@ async fn create_comment(
     pid,
     rid,
     at,
+    client_ip,
     Some(lang.clone()),
   )
   .await
