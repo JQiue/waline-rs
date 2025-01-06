@@ -8,4 +8,5 @@ pub fn config(cfg: &mut ServiceConfig) {
   cfg.service(handler::ui_profile_page);
   cfg.service(handler::ui_login_page);
   cfg.service(handler::ui_migration_page);
+  cfg.service(handler::ui_user_page);
 }
