@@ -2,10 +2,11 @@
 
 set -e
 
+rm -rf ./target/leancloud
 mkdir ./target/leancloud
 cp ./assets/leanengine.yaml ./target/leancloud
 cp ./assets/waline.sqlite ./target/leancloud
-cp ./target/release/waline-mini ./target/leancloud
+cp ./target/x86_64-unknown-linux-musl/release/waline-mini ./target/leancloud
 
 cd ./target/leancloud
 
