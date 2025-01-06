@@ -225,6 +225,7 @@ pub fn create_comment_model(
   nick: String,
   ua: String,
   url: String,
+  ip: String,
   pid: Option<i32>,
   rid: Option<i32>,
 ) -> wl_comment::ActiveModel {
@@ -243,6 +244,7 @@ pub fn create_comment_model(
     inserted_at: Set(Some(utc_time)),
     created_at: Set(Some(utc_time)),
     updated_at: Set(Some(utc_time)),
+    ip: Set(Some(ip)),
     ..Default::default()
   }
 }

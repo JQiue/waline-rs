@@ -206,6 +206,7 @@ pub async fn create_comment(
   pid: Option<i32>,
   rid: Option<i32>,
   _at: Option<String>,
+  ip: String,
   lang: Option<String>,
 ) -> Result<Value, Code> {
   let html_output = render_md_to_html(&comment);
@@ -218,6 +219,7 @@ pub async fn create_comment(
     nick.clone(),
     ua.clone(),
     url,
+    ip,
     pid,
     rid,
   );
