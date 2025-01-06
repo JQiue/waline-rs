@@ -4,8 +4,8 @@ use helpers::{
 };
 use regex::Regex;
 use sea_orm::{
-  ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel, Iterable, QueryFilter, QuerySelect,
-  Set,
+  ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel, Iterable, PaginatorTrait,
+  QueryFilter, QuerySelect, Set,
 };
 use serde_json::{json, Value};
 
@@ -165,7 +165,7 @@ pub async fn set_user_profile(
   Ok(res.is_ok())
 }
 
-/// set user type（todo）
+/// TODO set user type
 pub async fn set_user_type(
   _state: &AppState,
   _user_id: i32,
@@ -174,16 +174,25 @@ pub async fn set_user_type(
   Err("todo".to_string())
 }
 
-pub async fn get_user_info_list(state: &AppState, _page: Option<u32>) -> Result<Vec<Value>, Code> {
-  let users = wl_users::Entity::find()
+pub async fn get_user_info_list(state: &AppState, page: u32) -> Result<Value, Code> {
+  let page_size = 10;
+  let paginator = wl_users::Entity::find()
     .select_only()
     .columns(wl_users::Column::iter().filter(|col| !matches!(col, wl_users::Column::Id)))
     .column_as(wl_users::Column::Id, "objectId")
     .into_json()
-    .all(&state.conn)
+    .paginate(&state.conn, page_size);
+  let total_pages = paginator.num_pages().await.map_err(AppError::from)?;
+  let users = paginator
+    .fetch_page((page - 1) as u64)
     .await
     .map_err(AppError::from)?;
-  Ok(users)
+  Ok(json!({
+    "data": users,
+    "page": page,
+    "pageSize": page_size,
+    "totalPages": total_pages,
+  }))
 }
 
 pub async fn get_user_info(state: &AppState, email: Option<String>) -> Result<Value, Code> {
@@ -225,7 +234,7 @@ pub async fn verification(state: &AppState, email: String, token: String) -> Res
   Err(Code::TokenExpired)
 }
 
-/// set 2fa（todo）
+/// TODO set 2fa
 pub async fn set_2fa(_state: &AppState, _code: String, _secret: String) -> Result<bool, String> {
   Err("todo".to_string())
 }
