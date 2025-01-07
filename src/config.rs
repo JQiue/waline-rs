@@ -26,10 +26,15 @@ fn default_ipqps() -> u64 {
   60
 }
 
+fn default_host() -> String {
+  "127.0.0.1".to_string()
+}
+
 #[derive(Deserialize, Debug)]
 pub struct Config {
   #[serde(default = "default_workers")]
   pub workers: usize,
+  #[serde(default = "default_host")]
   pub host: String,
   #[serde(default = "default_port")]
   pub port: u16,
