@@ -22,15 +22,24 @@ fn default_port() -> u16 {
   }
 }
 
+fn default_ipqps() -> u64 {
+  60
+}
+
+fn default_host() -> String {
+  "127.0.0.1".to_string()
+}
+
 #[derive(Deserialize, Debug)]
 pub struct Config {
   #[serde(default = "default_workers")]
   pub workers: usize,
+  #[serde(default = "default_host")]
   pub host: String,
   #[serde(default = "default_port")]
   pub port: u16,
   pub database_url: String,
-  pub jwt_key: String,
+  pub jwt_token: String,
   pub site_name: String,
   pub site_url: String,
   pub smtp_service: Option<String>,
@@ -40,7 +49,8 @@ pub struct Config {
   pub smtp_pass: Option<String>,
   pub author_email: Option<String>,
   pub levels: Option<String>,
-  pub ipqps: Option<u64>,
+  #[serde(default = "default_ipqps")]
+  pub ipqps: u64,
   pub comment_audit: Option<bool>,
 }
 

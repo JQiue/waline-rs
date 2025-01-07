@@ -6,10 +6,15 @@ use std::{
 };
 
 use crate::{
-  components::{article, comment, migration, ui, user},
+  components::{
+    article, comment, migration,
+    ui::{self, handler::ui_page},
+    user,
+  },
   config::Config,
   error::AppError,
 };
+
 use actix_cors::Cors;
 use actix_web::{
   middleware,
@@ -54,8 +59,7 @@ impl RateLimiter {
 pub struct AppState {
   pub rate_limiter: Arc<RateLimiter>,
   pub conn: DatabaseConnection,
-  pub anonymous_avatar: Arc<String>,
-  pub jwt_key: String,
+  pub jwt_token: String,
   pub levels: Option<String>,
 }
 
@@ -72,6 +76,7 @@ pub fn config_app(cfg: &mut ServiceConfig) {
       .configure(migration::config)
       .route("/health", web::get().to(health_check)),
   );
+  cfg.route("/ui", web::get().to(ui_page));
   cfg.service(web::scope("/ui").configure(ui::config));
   #[cfg(feature = "leancloud")]
   cfg.route("/", web::get().to(health_check));
@@ -82,11 +87,8 @@ pub async fn start() -> Result<(), AppError> {
   let db = Database::connect(app_config.database_url).await?;
   db.ping().await?;
   let state = AppState {
-    jwt_key: app_config.jwt_key,
+    jwt_token: app_config.jwt_token,
     conn: db,
-    anonymous_avatar: "https://seccdn.libravatar.org/avatar/d41d8cd98f00b204e9800998ecf8427e"
-      .to_string()
-      .into(),
     levels: app_config.levels,
     rate_limiter: Arc::new(RateLimiter::new()),
   };

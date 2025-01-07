@@ -1,3 +1,4 @@
+use crate::components::migration::model::CommentData;
 use crate::components::user::model::get_user;
 use crate::prelude::*;
 
@@ -12,33 +13,29 @@ use crate::{
   response::Code,
 };
 use chrono::{DateTime, Utc};
-use sea_orm::{ActiveModelTrait, EntityTrait, IntoActiveModel, Iterable, QuerySelect, Set};
+use sea_orm::{ActiveModelTrait, EntityTrait, IntoActiveModel, Set};
 use serde_json::{json, Value};
+
+use super::model::{CounterData, UserData};
 
 pub async fn export_data(state: &AppState, _lang: String) -> Result<Value, String> {
   let comments = wl_comment::Entity::find()
-    .select_only()
-    .columns(wl_comment::Column::iter().filter(|col| !matches!(col, wl_comment::Column::Id)))
-    .column_as(wl_comment::Column::Id, "objectId")
-    .into_json()
+    .into_partial_model::<CommentData>()
     .all(&state.conn)
     .await
+    .log_err()
     .unwrap();
   let counters = wl_counter::Entity::find()
-    .select_only()
-    .columns(wl_counter::Column::iter().filter(|col| !matches!(col, wl_counter::Column::Id)))
-    .column_as(wl_counter::Column::Id, "objectId")
-    .into_json()
+    .into_partial_model::<CounterData>()
     .all(&state.conn)
     .await
+    .log_err()
     .unwrap();
   let users = wl_users::Entity::find()
-    .select_only()
-    .columns(wl_users::Column::iter().filter(|col| !matches!(col, wl_users::Column::Id)))
-    .column_as(wl_users::Column::Id, "objectId")
-    .into_json()
+    .into_partial_model::<UserData>()
     .all(&state.conn)
     .await
+    .log_err()
     .unwrap();
   let data = json!({
       "type": "waline",
@@ -51,7 +48,6 @@ pub async fn export_data(state: &AppState, _lang: String) -> Result<Value, Strin
         "Users": users,
       }
   });
-
   Ok(data)
 }
 
@@ -65,7 +61,7 @@ pub async fn create_comment_data(
   status: Option<String>,
   ua: Option<String>,
   url: Option<String>,
-  create_at: Option<chrono::DateTime<Utc>>,
+  created_at: Option<chrono::DateTime<Utc>>,
   updated_at: Option<chrono::DateTime<Utc>>,
   inserted_at: Option<chrono::DateTime<Utc>>,
 ) -> Result<Value, Code> {
@@ -79,7 +75,7 @@ pub async fn create_comment_data(
     status: Set(status.unwrap()),
     ua: Set(ua),
     url: Set(url),
-    created_at: Set(create_at),
+    created_at: Set(created_at),
     updated_at: Set(updated_at),
     ..Default::default()
   }
@@ -173,7 +169,7 @@ pub async fn create_user_data(
     display_name: Set(display_name.unwrap()),
     email: Set(email.unwrap()),
     password: Set(password.unwrap()),
-    r#type: Set(r#type.unwrap()),
+    user_type: Set(r#type.unwrap()),
     label: Set(label),
     url: Set(url),
     two_factor_auth: Set(two_factor_auth),
@@ -215,7 +211,7 @@ pub async fn update_user_data(
     active_user.display_name = Set(display_name.unwrap());
     active_user.email = Set(email.unwrap());
     active_user.password = Set(password.unwrap());
-    active_user.r#type = Set(r#type.unwrap());
+    active_user.user_type = Set(r#type.unwrap());
     active_user.label = Set(label);
     active_user.url = Set(url);
     active_user.two_factor_auth = Set(two_factor_auth);
@@ -235,7 +231,7 @@ pub async fn update_user_data(
       display_name: Set(display_name.unwrap()),
       email: Set(email.unwrap()),
       password: Set(password.unwrap()),
-      r#type: Set(r#type.unwrap()),
+      user_type: Set(r#type.unwrap()),
       label: Set(label),
       url: Set(url),
       two_factor_auth: Set(two_factor_auth),

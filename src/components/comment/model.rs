@@ -118,7 +118,6 @@ fn get_thresholds(levels: &str) -> Vec<usize> {
   if !is_strictly_increasing(&thresholds) {
     return vec![0, 10, 20, 50, 100, 200];
   }
-  tracing::debug!("{:?}", thresholds);
   thresholds
 }
 
@@ -163,14 +162,13 @@ pub fn build_data_entry(comment: wl_comment::Model, level: Option<usize>) -> Dat
   }
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct GetCommentQuery {
   pub lang: String,
   pub path: Option<String>,
-  #[serde(rename = "pageSize")]
   pub page_size: Option<i32>,
   pub page: i32,
-  #[serde(rename = "sortBy")]
   pub sort_by: Option<String>,
   pub r#type: Option<String>,
   pub owner: Option<String>,
@@ -227,6 +225,7 @@ pub fn create_comment_model(
   nick: String,
   ua: String,
   url: String,
+  ip: String,
   pid: Option<i32>,
   rid: Option<i32>,
 ) -> wl_comment::ActiveModel {
@@ -245,6 +244,7 @@ pub fn create_comment_model(
     inserted_at: Set(Some(utc_time)),
     created_at: Set(Some(utc_time)),
     updated_at: Set(Some(utc_time)),
+    ip: Set(Some(ip)),
     ..Default::default()
   }
 }

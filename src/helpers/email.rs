@@ -54,7 +54,7 @@ pub struct CommentNotification {
 pub enum NotifyType {
   Notify,
   NewComment,
-  ReplyComment,
+  _ReplyComment,
 }
 
 pub fn send_email_notification(notification: CommentNotification) {
@@ -87,7 +87,7 @@ pub fn send_email_notification(notification: CommentNotification) {
       to = app_config.author_email.clone().unwrap();
       reply_to = app_config.author_email.unwrap();
     }
-    NotifyType::ReplyComment => {
+    NotifyType::_ReplyComment => {
       subject = "".to_owned();
       body = "".to_owned();
       to = notification.sender_email;
