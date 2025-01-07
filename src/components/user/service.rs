@@ -1,4 +1,5 @@
 use helpers::{
+  jwt,
   time::utc_now,
   uuid::{self, Alphabet},
 };
@@ -22,7 +23,7 @@ use crate::{
   response::Code,
 };
 
-use super::model::get_user;
+use super::model::{get_user, is_admin_user};
 
 pub async fn user_register(
   state: &AppState,
@@ -215,13 +216,29 @@ pub async fn set_user_profile(
   Ok(res.is_ok())
 }
 
-/// TODO set user type
 pub async fn set_user_type(
-  _state: &AppState,
-  _user_id: i32,
-  _type: String,
-) -> Result<bool, String> {
-  Err("todo".to_string())
+  state: &AppState,
+  token: String,
+  user_id: u32,
+  r#type: String,
+) -> Result<bool, Code> {
+  let email = jwt::verify::<String>(token, state.jwt_token.clone())
+    .map_err(AppError::from)?
+    .claims
+    .data;
+  if is_admin_user(email.clone(), &state.conn).await? {
+    let mut active_user = get_user(UserQueryBy::Id(user_id), &state.conn)
+      .await?
+      .into_active_model();
+    active_user.user_type = Set(r#type);
+    active_user
+      .update(&state.conn)
+      .await
+      .map_err(|_| AppError::DatabaseError)?;
+    Ok(true)
+  } else {
+    Err(AppError::Error.into())
+  }
 }
 
 pub async fn get_user_info_list(state: &AppState, page: u32) -> Result<Value, Code> {

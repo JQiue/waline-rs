@@ -80,7 +80,6 @@ async fn get_login_user_info(req: HttpRequest, state: Data<AppState>) -> HttpRes
   }
 }
 
-/// TODO set user profile
 #[put("/user")]
 pub async fn set_user_profile(
   req: HttpRequest,
@@ -94,7 +93,6 @@ pub async fn set_user_profile(
     password,
     avatar,
   }) = body;
-
   match extract_token(&req) {
     Ok(token) => {
       match service::set_user_profile(&state, token, display_name, label, url, password, avatar)
@@ -108,24 +106,22 @@ pub async fn set_user_profile(
   }
 }
 
-/// TODO set user type
-#[put("/token/{user_id}")]
+// WARNING
+#[put("/user/{user_id}")]
 pub async fn set_user_type(
+  req: HttpRequest,
   state: Data<AppState>,
-  path: Path<i32>,
+  path: Path<u32>,
   body: Json<SetUserTypeBody>,
 ) -> HttpResponse {
   let user_id = path.into_inner();
   let Json(SetUserTypeBody { r#type }) = body;
-  match service::set_user_type(&state, user_id, r#type).await {
-    Ok(_) => HttpResponse::Ok().json(json!({
-      "errno": 1000,
-      "errmsg": "",
-    })),
-    Err(_) => HttpResponse::Ok().json(json!({
-      "errno": 1000,
-      "errmsg": "",
-    })),
+  match extract_token(&req) {
+    Ok(token) => match service::set_user_type(&state, token, user_id, r#type).await {
+      Ok(_) => HttpResponse::Ok().json(Response::<()>::success(None, None)),
+      Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),
+    },
+    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err.into(), None)),
   }
 }
 
