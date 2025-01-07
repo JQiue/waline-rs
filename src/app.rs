@@ -6,9 +6,14 @@ use std::{
 };
 
 use crate::{
-  components::{article, comment, migration, ui, user},
+  components::{
+    article, comment, migration,
+    ui::{self, handler::ui_page},
+    user,
+  },
   config::Config,
 };
+
 use actix_cors::Cors;
 use actix_web::{
   middleware,
@@ -53,8 +58,7 @@ impl RateLimiter {
 pub struct AppState {
   pub rate_limiter: Arc<RateLimiter>,
   pub conn: DatabaseConnection,
-  pub anonymous_avatar: Arc<String>,
-  pub jwt_key: String,
+  pub jwt_token: String,
   pub levels: Option<String>,
 }
 
@@ -71,6 +75,7 @@ pub fn config_app(cfg: &mut ServiceConfig) {
       .configure(migration::config)
       .route("/health", web::get().to(health_check)),
   );
+  cfg.route("/ui", web::get().to(ui_page));
   cfg.service(web::scope("/ui").configure(ui::config));
 }
 
@@ -79,13 +84,10 @@ pub async fn start() -> impl FnOnce(&mut ServiceConfig) + Send + Clone + 'static
   let conn = Database::connect(app_config.database_url).await.unwrap();
   conn.ping().await.unwrap();
   let state = AppState {
-    jwt_key: app_config.jwt_key,
     conn,
-    anonymous_avatar: "https://seccdn.libravatar.org/avatar/d41d8cd98f00b204e9800998ecf8427e"
-      .to_string()
-      .into(),
-    rate_limiter: Arc::new(RateLimiter::new()),
+    jwt_token: app_config.jwt_token,
     levels: app_config.levels,
+    rate_limiter: Arc::new(RateLimiter::new()),
   };
   move |cfg: &mut ServiceConfig| {
     cfg.service(

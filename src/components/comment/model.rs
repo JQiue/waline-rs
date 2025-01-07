@@ -1,10 +1,11 @@
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::{
   entities::wl_comment,
   error::AppError,
-  helpers::{email::extract_email_prefix, markdown::render_md_to_html, ua},
+  helpers::{avatar::get_avatar, markdown::render_md_to_html, ua},
 };
 
 #[derive(Clone)]
@@ -69,7 +70,7 @@ pub async fn is_duplicate(
     .all(conn)
     .await
     .map_err(AppError::from)?;
-  Ok(res.len() > 0)
+  Ok(!res.is_empty())
 }
 
 #[derive(Serialize, Debug)]
@@ -82,6 +83,7 @@ pub struct DataEntry {
   pub user_id: Option<i32>,
   pub browser: String,
   pub os: String,
+  #[serde(skip_serializing_if = "Option::is_none")]
   pub r#type: Option<String>,
   #[serde(rename = "objectId")]
   pub object_id: u32,
@@ -96,6 +98,8 @@ pub struct DataEntry {
   pub level: Option<usize>,
   pub label: Option<String>,
   pub children: Vec<DataEntry>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub reply_user: Option<Value>,
 }
 
 fn is_strictly_increasing(nums: &[usize]) -> bool {
@@ -114,8 +118,7 @@ fn get_thresholds(levels: &str) -> Vec<usize> {
   if !is_strictly_increasing(&thresholds) {
     return vec![0, 10, 20, 50, 100, 200];
   }
-  tracing::debug!("{:?}", thresholds);
-  return thresholds;
+  thresholds
 }
 
 pub fn get_level(count: usize, levels: &str) -> usize {
@@ -125,14 +128,10 @@ pub fn get_level(count: usize, levels: &str) -> usize {
       return index - 1;
     }
   }
-  return 0;
+  0
 }
 
-pub fn build_data_entry(
-  comment: wl_comment::Model,
-  anonymous_avatar: String,
-  level: Option<usize>,
-) -> DataEntry {
+pub fn build_data_entry(comment: wl_comment::Model, level: Option<usize>) -> DataEntry {
   let (browser, os) = ua::parse(comment.ua.unwrap_or("".to_owned()));
   let safe_html = Some(ammonia::clean(&render_md_to_html(
     &comment.comment.clone().unwrap_or("".to_owned()),
@@ -146,7 +145,7 @@ pub fn build_data_entry(
     user_id: comment.user_id,
     browser,
     os,
-    url: comment.url,
+    url: comment.url.clone(),
     r#type: None,
     object_id: comment.id,
     ip: comment.ip,
@@ -155,28 +154,21 @@ pub fn build_data_entry(
     pid: comment.pid,
     rid: comment.rid,
     comment: safe_html,
-    avatar: if comment.user_id.is_some() {
-      format!(
-        "https://q1.qlogo.cn/g?b=qq&nk={}&s=100",
-        extract_email_prefix(comment.mail.unwrap()).unwrap()
-      )
-    } else {
-      anonymous_avatar
-    },
+    avatar: get_avatar(&comment.mail.unwrap_or("default".to_owned())),
     level,
     label: None,
     children: vec![],
+    reply_user: None,
   }
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct GetCommentQuery {
   pub lang: String,
   pub path: Option<String>,
-  #[serde(rename = "pageSize")]
   pub page_size: Option<i32>,
   pub page: i32,
-  #[serde(rename = "sortBy")]
   pub sort_by: Option<String>,
   pub r#type: Option<String>,
   pub owner: Option<String>,
@@ -233,6 +225,7 @@ pub fn create_comment_model(
   nick: String,
   ua: String,
   url: String,
+  ip: String,
   pid: Option<i32>,
   rid: Option<i32>,
 ) -> wl_comment::ActiveModel {
@@ -251,6 +244,7 @@ pub fn create_comment_model(
     inserted_at: Set(Some(utc_time)),
     created_at: Set(Some(utc_time)),
     updated_at: Set(Some(utc_time)),
+    ip: Set(Some(ip)),
     ..Default::default()
   }
 }

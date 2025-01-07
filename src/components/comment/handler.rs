@@ -13,7 +13,7 @@ use crate::{
   },
   config::Config,
   error::AppError,
-  helpers::header::extract_token,
+  helpers::header::{extract_ip, extract_token},
   response::{Code, Response},
 };
 
@@ -60,7 +60,8 @@ async fn get_comment_info(
       return HttpResponse::Ok().json(Response::<()>::error(Code::Error, Some(&lang)));
     }
     let token = extract_token(&req).unwrap();
-    let email = match jwt::verify::<String>(token, state.jwt_key.clone()).map_err(AppError::from) {
+    let email = match jwt::verify::<String>(token, state.jwt_token.clone()).map_err(AppError::from)
+    {
       Ok(token_data) => token_data.claims.data,
       Err(err) => return HttpResponse::Ok().json(Response::<()>::error(err.into(), Some(&lang))),
     };
@@ -108,34 +109,29 @@ async fn create_comment(
   }) = body;
   let app_config = Config::from_env().unwrap();
   let mut is_admin = false;
+  let client_ip = extract_ip(&req);
   let pass = if let Ok(token) = extract_token(&req) {
-    if jwt::verify::<String>(token.clone(), state.jwt_key.clone()).is_err() {
+    if jwt::verify::<String>(token.clone(), state.jwt_token.clone()).is_err() {
       false
+    } else if is_admin_user(
+      jwt::verify::<String>(token, state.jwt_token.clone())
+        .unwrap()
+        .claims
+        .data,
+      &state.conn,
+    )
+    .await
+    .unwrap()
+    {
+      is_admin = true;
+      true
     } else {
-      if is_admin_user(
-        jwt::verify::<String>(token, state.jwt_key.clone())
-          .unwrap()
-          .claims
-          .data,
-        &state.conn,
-      )
-      .await
-      .unwrap()
-      {
-        is_admin = true;
-        true
-      } else {
-        false
-      }
+      false
     }
   } else {
-    let client_ip = req
-      .peer_addr()
-      .map(|s| s.ip().to_string())
-      .unwrap_or_default();
     state
       .rate_limiter
-      .check_and_update(&client_ip, app_config.ipqps.unwrap_or(60), 1)
+      .check_and_update(&client_ip, app_config.ipqps, 1)
   };
   if !pass {
     return HttpResponse::Ok().json(Response::<()>::error(Code::FrequencyLimited, Some(&lang)));
@@ -158,6 +154,7 @@ async fn create_comment(
     pid,
     rid,
     at,
+    client_ip,
     Some(lang.clone()),
   )
   .await

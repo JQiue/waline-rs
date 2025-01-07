@@ -80,7 +80,7 @@ async fn get_login_user_info(req: HttpRequest, state: Data<AppState>) -> HttpRes
   }
 }
 
-/// set user profile
+/// TODO set user profile
 #[put("/user")]
 pub async fn set_user_profile(
   req: HttpRequest,
@@ -92,11 +92,14 @@ pub async fn set_user_profile(
     label,
     url,
     password,
+    avatar,
   }) = body;
 
   match extract_token(&req) {
     Ok(token) => {
-      match service::set_user_profile(&state, token, display_name, label, url, password).await {
+      match service::set_user_profile(&state, token, display_name, label, url, password, avatar)
+        .await
+      {
         Ok(_) => HttpResponse::Ok().json(Response::<()>::success(None, None)),
         Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),
       }
@@ -105,7 +108,7 @@ pub async fn set_user_profile(
   }
 }
 
-/// 设置用户类型（todo）
+/// TODO set user type
 #[put("/token/{user_id}")]
 pub async fn set_user_type(
   state: Data<AppState>,
@@ -130,21 +133,9 @@ pub async fn set_user_type(
 pub async fn get_user_info(state: Data<AppState>, query: Query<GetUserQuery>) -> HttpResponse {
   let Query(GetUserQuery { email, lang, page }) = query;
   if page.is_some() {
-    match service::get_user_info_list(&state, page).await {
-      Ok(data) => HttpResponse::Ok().json(json!({
-        "data": {
-          "data": data,
-          "page": 1,
-          "pageSize": 10,
-          "totalPages": 1
-        },
-        "errmsg": "",
-        "errno": 0
-      })),
-      Err(err) => HttpResponse::Ok().json(json!({
-        "errmsg": err,
-        "errno": 1000
-      })),
+    match service::get_user_info_list(&state, page.unwrap()).await {
+      Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(&lang))),
+      Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, Some(&lang))),
     }
   } else {
     match service::get_user_info(&state, email).await {
@@ -165,7 +156,7 @@ pub async fn verification(state: Data<AppState>, query: Query<VerificationQuery>
   }
 }
 
-/// 设置 2fa（todo）
+/// TODO 设置 2fa
 #[post("/token/2fa")]
 pub async fn set_2fa(state: Data<AppState>, body: Json<Set2faBody>) -> HttpResponse {
   let Json(Set2faBody { code, secret }) = body;

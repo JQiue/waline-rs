@@ -15,7 +15,8 @@ use crate::{
   entities::wl_comment,
   error::AppError,
   helpers::{
-    email::{extract_email_prefix, send_email_notification, CommentNotification, NotifyType},
+    avatar::get_avatar,
+    email::{send_email_notification, CommentNotification, NotifyType},
     markdown::render_md_to_html,
     ua,
   },
@@ -51,8 +52,8 @@ pub async fn get_comment_info(
     .filter(wl_comment::Column::Status.is_not_in(["waiting", "spam"]));
   if token.is_ok() {
     let token = token.unwrap();
-    if jwt::verify::<String>(token.clone(), state.clone().jwt_key).is_ok() {
-      let email = jwt::verify::<String>(token, state.clone().jwt_key)
+    if jwt::verify::<String>(token.clone(), state.clone().jwt_token).is_ok() {
+      let email = jwt::verify::<String>(token, state.clone().jwt_token)
         .unwrap()
         .claims
         .data;
@@ -83,19 +84,15 @@ pub async fn get_comment_info(
       .map_err(AppError::from)?;
     let level;
     if let Some(levels) = &state.levels {
-      level = Some(get_level(c as usize, &levels));
+      level = Some(get_level(c as usize, levels));
     } else {
       level = None;
     }
-    let mut parrent_data_entry = build_data_entry(
-      parrent_comment.clone(),
-      state.anonymous_avatar.to_string(),
-      level,
-    );
+    let mut parrent_data_entry = build_data_entry(parrent_comment.clone(), level);
     if let Some(user_id) = parrent_data_entry.user_id {
       let user = get_user(UserQueryBy::Id(user_id as u32), &state.conn).await?;
       parrent_data_entry.label = user.label;
-      parrent_data_entry.r#type = Some(user.r#type);
+      parrent_data_entry.r#type = Some(user.user_type);
     }
     let subcomments = wl_comment::Entity::find()
       .filter(wl_comment::Column::Url.contains(path.clone()))
@@ -116,21 +113,21 @@ pub async fn get_comment_info(
         .map_err(AppError::from)?;
       let level;
       if let Some(levels) = &state.levels {
-        level = Some(get_level(c as usize, &levels));
+        level = Some(get_level(c as usize, levels));
       } else {
         level = None;
       }
-
-      let mut subcomment_data_entry = build_data_entry(
-        subcomment.clone(),
-        state.anonymous_avatar.to_string(),
-        level,
-      );
+      let mut subcomment_data_entry = build_data_entry(subcomment.clone(), level);
       if let Some(user_id) = subcomment_data_entry.user_id {
         let user = get_user(UserQueryBy::Id(user_id as u32), &state.conn).await?;
         subcomment_data_entry.label = user.label;
-        subcomment_data_entry.r#type = Some(user.r#type);
+        subcomment_data_entry.r#type = Some(user.user_type);
       }
+      subcomment_data_entry.reply_user = Some(json!({
+        "avatar": get_avatar(&parrent_comment.mail.clone().unwrap_or("default".to_owned())),
+        "link": parrent_comment.link,
+        "nick": parrent_comment.nick,
+      }));
       parrent_data_entry.children.push(subcomment_data_entry)
     }
     data.push(parrent_data_entry)
@@ -178,18 +175,16 @@ pub async fn get_comment_info_by_admin(
   }
   let mut data = vec![];
   for comment in comments.iter() {
-    let mut data_entry =
-      build_data_entry(comment.clone(), state.anonymous_avatar.to_string(), None);
+    let mut data_entry = build_data_entry(comment.clone(), None);
     if let Some(user_id) = data_entry.user_id {
       let user = get_user(UserQueryBy::Id(user_id as u32), &state.conn)
         .await
         .unwrap();
       data_entry.label = user.label;
-      data_entry.r#type = Some(user.r#type);
+      data_entry.r#type = Some(user.user_type);
     }
     data.push(data_entry);
   }
-  tracing::debug!("{:#?}", data);
   Ok(json!({
     "data": data,
     "page": page,
@@ -200,8 +195,6 @@ pub async fn get_comment_info_by_admin(
   }))
 }
 
-/// create comment
-/// 逻辑是先验证 jwt，如果 jwt 正确，则直接插入，否则需要验证评论是否重复，不重复则插入
 pub async fn create_comment(
   state: &AppState,
   comment: String,
@@ -213,10 +206,11 @@ pub async fn create_comment(
   pid: Option<i32>,
   rid: Option<i32>,
   _at: Option<String>,
+  ip: String,
   lang: Option<String>,
 ) -> Result<Value, Code> {
   let html_output = render_md_to_html(&comment);
-  let mut avatar = state.anonymous_avatar.to_string();
+  let mut avatar = get_avatar("anonymous");
   let mut new_comment = create_comment_model(
     None,
     comment,
@@ -225,6 +219,7 @@ pub async fn create_comment(
     nick.clone(),
     ua.clone(),
     url,
+    ip,
     pid,
     rid,
   );
@@ -241,22 +236,16 @@ pub async fn create_comment(
     new_comment.user_id = Set(Some(user.id as i32));
     data["label"] = json!(user.label);
     data["mail"] = json!(user.email);
-    data["type"] = json!(user.r#type);
+    data["type"] = json!(user.user_type);
     data["user_id"] = json!(user.id);
-    avatar = if let Some(prefix) = extract_email_prefix(email.clone()) {
-      format!("https://q1.qlogo.cn/g?b=qq&nk={}&s=100", prefix)
-    } else {
-      state.anonymous_avatar.to_string()
-    };
-    if user.r#type == "administrator" {
+    avatar = get_avatar(&user.email);
+    if user.user_type == "administrator" {
       is_admin = true;
     }
   }
   let app_config = Config::from_env().unwrap();
-  if app_config.comment_audit.is_some() {
-    if app_config.comment_audit.unwrap() {
-      new_comment.status = Set("waiting".to_string());
-    }
+  if app_config.comment_audit.is_some() && app_config.comment_audit.unwrap() {
+    new_comment.status = Set("waiting".to_string());
   }
   if is_admin {
     new_comment.status = Set("approved".to_string());
@@ -371,7 +360,7 @@ pub async fn update_comment(
   if is_anonymous(id, &state.conn).await? {
     let data = json!({
       "addr":"",
-      "avatar": state.anonymous_avatar.to_string(),
+      "avatar": get_avatar("anonymous"),
       "browser": browser,
       "comment": html_output,
       "ip": new_comment.ip,
@@ -394,20 +383,15 @@ pub async fn update_comment(
       &state.conn,
     )
     .await?;
-    let avatar = if let Some(prefix) = extract_email_prefix(user.email.clone()) {
-      format!("https://q1.qlogo.cn/g?b=qq&nk={}&s=100", prefix)
-    } else {
-      state.anonymous_avatar.to_string()
-    };
     let mut data = json!({
       "addr":"",
-      "avatar": avatar,
+      "avatar": get_avatar(&user.email),
       "browser": browser,
       "comment": html_output,
       "ip": new_comment.ip,
       "label": user.label,
       "mail": user.email.clone(),
-      "type": user.r#type,
+      "type": user.user_type,
       "user_id": new_comment.user_id,
       "like": like,
       "link": new_comment.link,

@@ -6,12 +6,6 @@ use strfmt::strfmt;
 
 use crate::{config::Config, locales::get_translation};
 
-/// Get the mail address prefix
-pub fn extract_email_prefix(email: String) -> Option<String> {
-  let mut res = email.split('@');
-  res.next().map(|prefix| prefix.to_string())
-}
-
 struct SmtpConfig {
   host: &'static str,
   port: u16,
@@ -60,7 +54,7 @@ pub struct CommentNotification {
 pub enum NotifyType {
   Notify,
   NewComment,
-  ReplyComment,
+  _ReplyComment,
 }
 
 pub fn send_email_notification(notification: CommentNotification) {
@@ -93,7 +87,7 @@ pub fn send_email_notification(notification: CommentNotification) {
       to = app_config.author_email.clone().unwrap();
       reply_to = app_config.author_email.unwrap();
     }
-    NotifyType::ReplyComment => {
+    NotifyType::_ReplyComment => {
       subject = "".to_owned();
       body = "".to_owned();
       to = notification.sender_email;

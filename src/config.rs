@@ -4,10 +4,14 @@ use serde::Deserialize;
 
 use crate::error::AppError;
 
+fn default_ipqps() -> u64 {
+  60
+}
+
 #[derive(Deserialize, Debug)]
 pub struct Config {
   pub database_url: String,
-  pub jwt_key: String,
+  pub jwt_token: String,
   pub site_name: String,
   pub site_url: String,
   pub smtp_service: Option<String>,
@@ -17,7 +21,8 @@ pub struct Config {
   pub smtp_pass: Option<String>,
   pub author_email: Option<String>,
   pub levels: Option<String>,
-  pub ipqps: Option<u64>,
+  #[serde(default = "default_ipqps")]
+  pub ipqps: u64,
   pub comment_audit: Option<bool>,
 }
 

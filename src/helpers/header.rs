@@ -25,3 +25,18 @@ pub fn extract_token(req: &HttpRequest) -> Result<String, AppError> {
   }
   Ok(auth_header[7..].to_string()) // Skip "Bearer " prefix
 }
+
+pub fn extract_ip(req: &HttpRequest) -> String {
+  if let Some(h) = req.headers().get("X-Forwarded-For") {
+    let s = h.to_str().unwrap_or("0.0.0.0").to_string();
+    s
+  } else if let Some(h) = req.headers().get("X-Real-IP") {
+    let s = h.to_str().ok().unwrap_or("0.0.0.0").to_string();
+    s
+  } else {
+    req
+      .peer_addr()
+      .map(|s| s.ip().to_string())
+      .unwrap_or_default()
+  }
+}
