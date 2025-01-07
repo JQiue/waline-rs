@@ -36,7 +36,8 @@ pub async fn user_register(
   if has_user(UserQueryBy::Email(email.clone()), &state.conn).await? {
     return Err(Code::UserRegistered);
   }
-  let hashed = helpers::hash::bcrypt(password.as_bytes()).map_err(|_| Code::Error)?;
+  let hashed = helpers::hash::bcrypt_custom(password.as_bytes(), 8, helpers::hash::Version::TwoA)
+    .map_err(|_| Code::Error)?;
   let mut user = wl_users::ActiveModel {
     display_name: Set(display_name),
     email: Set(email.clone()),
