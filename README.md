@@ -1,6 +1,7 @@
 <div align="center">
  <p><h1>waline-mini</h1></p>
-  <p><strong>A minimalist implementation of waline.</strong></p>
+  <p>English | <a href="./README.zh-CN.md">简体中文</a></p>
+  <p><strong>A minimalist implementation of Waline.</strong></p>
   <p>
 
 ![GitHub Release](https://img.shields.io/github/v/release/JQiue/waline-mini)
@@ -20,9 +21,9 @@ In my Ubuntu server, the waline-mini requires only about `5612Kb=5.48MB` of memo
 
 ![mem](./assets/image.png)
 
-+ Extremely low memory usage: Just 1/25 of the Node.js version's memory footprint.
-+ Seamless replacement: Drop-in alternative to the original Waline.
-+ Synchronized development: Keeping pace with the original Waline's evolution.
++ **Extremely low memory usage**: Just 1/25 of the Node.js version's memory footprint.
++ **Easy replacement**: Implements most of the necessary apis of the original Waline.
++ **Synchronous update**: Keeping pace with the original Waline's evolution.
 
 ## Features
 
@@ -42,7 +43,9 @@ In my Ubuntu server, the waline-mini requires only about `5612Kb=5.48MB` of memo
 
 ## Usage
 
-From [GitHub Releases](https://github.com/JQiue/waline-mini/releases) to download the binary file is appropriate for your platform.
+### Run from an executable file
+
+From [GitHub Releases](https://github.com/JQiue/waline-mini/releases) to download the binary file is appropriate for your platform. Examples of Linux use:
 
 ```bash
 # Setting environment variables
@@ -55,18 +58,39 @@ export SITE_URL=your_site_url
 ./waline-mini
 ```
 
+### Docker
+
+```sh
+docker run -d \
+  -e JWT_TOKEN=your_secret_key \
+  -e SITE_NAME=your_site_name \
+  -e SITE_URL=your_site_url \
+  -p 8360:8360 \
+  jqiue/waline
+```
+
+Since the image is packaged with built-in SQLite as the default storage, you do not need to specify `DATABASE_URL` when using SQLite as storage, if you want to use other databases, you only need to add `-e DATABASE_URL` environment for coverage
+
+### LeanCloud
+
+When LeanCloud is used to pull the warehouse directly for deployment, the branch needs to enter "leancloud"
+
+If SQLite is used as the data store, the environment variable `DATABASE_URL` should be filled with `sqlite://./waline.sqlite? mode=rw`. When deploying with LeanCloud, a new SQLite file is included each time, so it is important to export the data before redeployment and import the data after redeployment when upgrading the waline-mini for redeployment
+
+## Configuration
+
 Configure waline-mini with environment variables:
 
 | Environment variable | Description                                                                                                                                               | Require | Default     |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ----------- |
-| DATABASE_URL         | SQLite and MySQL/MariaDB are supported. `protocol://username:password@host/database`                                                                      | ✅       | -           |
+| DATABASE_URL         | SQLite and MySQL/MariaDB are supported. Compile features can be added to support PostgreSQL at any time. `protocol://username:password@host/database`     | ✅       | -           |
 | JWT_TOKEN            | A random string is used to generate the JWT Signature key                                                                                                 | ✅       | -           |
 | SITE_NAME            | Site name                                                                                                                                                 | ✅       | -           |
 | SITE_URL             | Site url                                                                                                                                                  | ✅       | -           |
 | SERVER_URL           | Custom Waline server address                                                                                                                              |         | auto        |
 | WORKERS              | Worker thread count                                                                                                                                       |         | 1           |
 | LEVELS               | Give each user a rating label based on the number of comments                                                                                             |         | -           |
-| SMTP_SERVICE         | SMTP mail service provider                                                                                                                                |         | -           |
+| SMTP_SERVICE         | SMTP mail service provider: `QQ`，`GMail`，`126`，`163`                                                                                                   |         | -           |
 | SMTP_HOST            | SMTP server address                                                                                                                                       |         | -           |
 | SMTP_PORT            | SMTP server port                                                                                                                                          |         | -           |
 | SMTP_USER            | SMTP username                                                                                                                                             |         | -           |
