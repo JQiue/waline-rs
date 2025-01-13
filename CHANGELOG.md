@@ -2,7 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.7.1](https://github.com/JQiue/waline-rs/compare/v0.7.0..0.7.1) - 2025-01-04
+## [0.8.0](https://github.com/JQiue/waline-rs/compare/v0.7.1..0.8.0) - 2025-01-07
+
+### 🚀 Features
+
+- Add extract_ip function to handle client IP extraction - ([d7ba7c4](https://github.com/JQiue/waline-rs/commit/d7ba7c44a0b34095d1a8bfe0813a9335f1942f60))
+- Update comment handling to include client IP - ([a190933](https://github.com/JQiue/waline-rs/commit/a19093348dc63f334fa8ce6fccfd36beabbdcd09))
+- Add avatar and password handling to user profile - ([f36e940](https://github.com/JQiue/waline-rs/commit/f36e940c2a1efa8b118481cf8fec912ab8c2b8c3))
+- Use custom bcrypt hashing for password - ([66564e4](https://github.com/JQiue/waline-rs/commit/66564e46207daaf66c30f1174009336dbb313608))
+- Implement user type setting with admin verification - ([6f8bb8d](https://github.com/JQiue/waline-rs/commit/6f8bb8d44e81d08537546aa4fb59acf9fd4773f9))
+
+### 🐛 Bug Fixes
+
+- Add user page route to ui handler fix not found - ([8a9e149](https://github.com/JQiue/waline-rs/commit/8a9e149f1696524aa1a74e049ea52ac74766195c))
+- Secure user registration with bcrypt and add email verification - ([7543492](https://github.com/JQiue/waline-rs/commit/7543492e499254cee16b908607e1db714b194a7a))
+
+### 🚜 Refactor
+
+- Standardize user info response format - ([58889df](https://github.com/JQiue/waline-rs/commit/58889df5e18e5e9b0742a28d35b4f9504091d9fb))
+
+### 📚 Documentation
+
+- Update README and config for default host value - ([84af954](https://github.com/JQiue/waline-rs/commit/84af954b01d2f9f909b395690b9d42274912caff))
+
+### ⚙️ Miscellaneous Tasks
+
+- Update leancloud.sh to copy waline-mini from new path - ([3cb32d9](https://github.com/JQiue/waline-rs/commit/3cb32d9106de94d8f4524652fa5a9d7cb6955df6))
+
+## [0.7.1](https://github.com/JQiue/waline-rs/compare/v0.7.0..v0.7.1) - 2025-01-04
 
 ### 🐛 Bug Fixes
 
@@ -12,6 +39,7 @@ All notable changes to this project will be documented in this file.
 
 - Update changelog body - ([dac8bd8](https://github.com/JQiue/waline-rs/commit/dac8bd8e40551e95df0a4811af5f22c588344dbf))
 - Update release.push to true - ([610d57e](https://github.com/JQiue/waline-rs/commit/610d57e9e560dd4f86d5b881da1f590057e02d3c))
+- Release waline-mini version 0.7.1 - ([a23344d](https://github.com/JQiue/waline-rs/commit/a23344d592db46af0a5c57447f5f4b1bbf5ef965))
 
 ## [0.7.0](https://github.com/JQiue/waline-rs/compare/v0.6.1..v0.7.0) - 2025-01-03
 

@@ -1,4 +1,5 @@
 use helpers::{
+  jwt,
   time::utc_now,
   uuid::{self, Alphabet},
 };
@@ -22,7 +23,7 @@ use crate::{
   response::Code,
 };
 
-use super::model::get_user;
+use super::model::{get_user, is_admin_user};
 
 pub async fn user_register(
   state: &AppState,
@@ -33,11 +34,50 @@ pub async fn user_register(
   host: String,
   lang: String,
 ) -> Result<Value, Code> {
+  let mut data = json!({
+    "verify": true
+  });
+  let hashed: String =
+    helpers::hash::bcrypt_custom(password.as_bytes(), 8, helpers::hash::Version::TwoA)
+      .map_err(|_| Code::Error)?;
+  let app_config = Config::from_env().unwrap();
   if has_user(UserQueryBy::Email(email.clone()), &state.conn).await? {
+    let user = get_user(UserQueryBy::Email(email.clone()), &state.conn).await?;
+    if user.user_type != "administrator" || user.user_type != "guest" {
+      let mut active_user = user.into_active_model();
+      active_user.display_name = Set(display_name);
+      active_user.url = Set(Some(url));
+      active_user.password = Set(hashed);
+      let token = uuid::uuid(&Alphabet::NUMBERS, 4);
+      active_user.user_type = Set(format!(
+        "verify:{}:{}",
+        token,
+        utc_now().timestamp_millis() + 60 * 60 * 1000
+      ));
+      let url = format!(
+        "http://{}/api/verification?token={}&email={}",
+        host, token, email
+      );
+      send_email_notification(CommentNotification {
+        sender_name: app_config.site_name,
+        sender_email: email,
+        comment_id: 0,
+        comment: "".to_string(),
+        url,
+        notify_type: NotifyType::Notify,
+        lang: Some(lang),
+      });
+      return match active_user
+        .update(&state.conn)
+        .await
+        .map_err(AppError::from)
+      {
+        Ok(_) => Ok(data),
+        Err(err) => Err(err.into()),
+      };
+    }
     return Err(Code::UserRegistered);
   }
-  let hashed = helpers::hash::bcrypt_custom(password.as_bytes(), 8, helpers::hash::Version::TwoA)
-    .map_err(|_| Code::Error)?;
   let mut user = wl_users::ActiveModel {
     display_name: Set(display_name),
     email: Set(email.clone()),
@@ -47,8 +87,8 @@ pub async fn user_register(
   };
   if is_first_user(&state.conn).await? {
     user.user_type = Set("administrator".to_string());
+    data = json!({});
   } else {
-    let app_config = Config::from_env().unwrap();
     let token = uuid::uuid(&Alphabet::NUMBERS, 4);
     user.user_type = Set(format!(
       "verify:{}:{}",
@@ -70,11 +110,7 @@ pub async fn user_register(
     });
   }
   match user.insert(&state.conn).await.map_err(AppError::from) {
-    Ok(_) => Ok(json! ({
-      "data": {
-        "verify": true
-      }
-    })),
+    Ok(_) => Ok(data),
     Err(err) => Err(err.into()),
   }
 }
@@ -180,13 +216,29 @@ pub async fn set_user_profile(
   Ok(res.is_ok())
 }
 
-/// TODO set user type
 pub async fn set_user_type(
-  _state: &AppState,
-  _user_id: i32,
-  _type: String,
-) -> Result<bool, String> {
-  Err("todo".to_string())
+  state: &AppState,
+  token: String,
+  user_id: u32,
+  r#type: String,
+) -> Result<bool, Code> {
+  let email = jwt::verify::<String>(token, state.jwt_token.clone())
+    .map_err(AppError::from)?
+    .claims
+    .data;
+  if is_admin_user(email.clone(), &state.conn).await? {
+    let mut active_user = get_user(UserQueryBy::Id(user_id), &state.conn)
+      .await?
+      .into_active_model();
+    active_user.user_type = Set(r#type);
+    active_user
+      .update(&state.conn)
+      .await
+      .map_err(|_| AppError::DatabaseError)?;
+    Ok(true)
+  } else {
+    Err(AppError::Error.into())
+  }
 }
 
 pub async fn get_user_info_list(state: &AppState, page: u32) -> Result<Value, Code> {
