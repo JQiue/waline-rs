@@ -22,6 +22,7 @@ use actix_web::{
   App, HttpResponse, HttpServer,
 };
 use sea_orm::{Database, DatabaseConnection};
+use tracing::{debug, info};
 
 #[derive(Debug)]
 pub struct RateLimiter {
@@ -86,6 +87,9 @@ pub async fn start() -> Result<(), AppError> {
   let app_config = Config::from_env()?;
   let db = Database::connect(app_config.database_url).await?;
   db.ping().await?;
+  if app_config.akismet_key != "false" {
+    info!("The anti-spam system has been activated")
+  }
   let state = AppState {
     jwt_token: app_config.jwt_token,
     conn: db,

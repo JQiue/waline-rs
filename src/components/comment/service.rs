@@ -1,5 +1,6 @@
 use actix_web::rt::spawn;
 use helpers::{jwt, time::utc_now};
+use instant_akismet::CheckResult;
 use sea_orm::{
   ActiveModelTrait, ColumnTrait, EntityTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, Set,
 };
@@ -18,6 +19,7 @@ use crate::{
     avatar::get_avatar,
     email::{send_email_notification, CommentNotification, NotifyType},
     markdown::render_md_to_html,
+    spam::check_comment,
     ua,
   },
   response::Code,
@@ -213,13 +215,13 @@ pub async fn create_comment(
   let mut avatar = get_avatar("anonymous");
   let mut new_comment = create_comment_model(
     None,
-    comment,
+    comment.clone(),
     link,
     email.clone(),
     nick.clone(),
     ua.clone(),
-    url,
-    ip,
+    url.clone(),
+    ip.clone(),
     pid,
     rid,
   );
@@ -246,6 +248,11 @@ pub async fn create_comment(
   let app_config = Config::from_env().unwrap();
   if app_config.comment_audit.is_some() && app_config.comment_audit.unwrap() {
     new_comment.status = Set("waiting".to_string());
+  }
+  if let CheckResult::Ham = check_comment(nick, email, ip, comment).await? {
+    new_comment.status = Set("approved".to_string());
+  } else {
+    new_comment.status = Set("spam".to_string());
   }
   if is_admin {
     new_comment.status = Set("approved".to_string());

@@ -6,6 +6,7 @@ pub enum AppError {
   DatabaseError,
   UserNotFound,
   AuthorizationError,
+  Akismet,
 }
 
 impl From<AppError> for Code {
@@ -15,6 +16,7 @@ impl From<AppError> for Code {
       AppError::Error => Code::Error,
       AppError::UserNotFound => Code::Error,
       AppError::AuthorizationError => Code::Error,
+      AppError::Akismet => Code::Error,
     };
     tracing::error!("{:#?}", err);
     status_code
@@ -60,6 +62,13 @@ impl From<actix_web::http::header::ToStrError> for AppError {
   fn from(err: actix_web::http::header::ToStrError) -> Self {
     tracing::error!("{:#?}", err);
     AppError::Error
+  }
+}
+
+impl From<instant_akismet::Error> for AppError {
+  fn from(err: instant_akismet::Error) -> Self {
+    tracing::error!("{:#?}", err);
+    AppError::Akismet
   }
 }
 
