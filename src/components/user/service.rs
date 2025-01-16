@@ -127,7 +127,7 @@ pub async fn user_login(
   if !result {
     return Err(Code::Error);
   }
-  let token = helpers::jwt::sign(user.email.clone(), state.jwt_token.clone(), 86400)
+  let token = helpers::jwt::sign(user.email.clone(), state.jwt_token.clone(), 2592000)
     .map_err(AppError::from)?;
   let mail_md5 = helpers::hash::md5(user.email.as_bytes());
   let data = json!({
