@@ -1,5 +1,6 @@
 use actix_web::rt::spawn;
 use helpers::{jwt, time::utc_now};
+use instant_akismet::CheckResult;
 use sea_orm::{
   ActiveModelTrait, ColumnTrait, EntityTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, Set,
 };
@@ -11,13 +12,13 @@ use crate::{
     comment::model::*,
     user::model::{get_user, is_admin_user, UserQueryBy},
   },
-  config::Config,
   entities::wl_comment,
   error::AppError,
   helpers::{
     avatar::get_avatar,
     email::{send_email_notification, CommentNotification, NotifyType},
     markdown::render_md_to_html,
+    spam::check_comment,
     ua,
   },
   response::Code,
@@ -90,9 +91,10 @@ pub async fn get_comment_info(
     }
     let mut parrent_data_entry = build_data_entry(parrent_comment.clone(), level);
     if let Some(user_id) = parrent_data_entry.user_id {
-      let user = get_user(UserQueryBy::Id(user_id as u32), &state.conn).await?;
-      parrent_data_entry.label = user.label;
-      parrent_data_entry.r#type = Some(user.user_type);
+      if let Ok(user) = get_user(UserQueryBy::Id(user_id as u32), &state.conn).await {
+        parrent_data_entry.label = user.label;
+        parrent_data_entry.r#type = Some(user.user_type);
+      }
     }
     let subcomments = wl_comment::Entity::find()
       .filter(wl_comment::Column::Url.contains(path.clone()))
@@ -177,11 +179,10 @@ pub async fn get_comment_info_by_admin(
   for comment in comments.iter() {
     let mut data_entry = build_data_entry(comment.clone(), None);
     if let Some(user_id) = data_entry.user_id {
-      let user = get_user(UserQueryBy::Id(user_id as u32), &state.conn)
-        .await
-        .unwrap();
-      data_entry.label = user.label;
-      data_entry.r#type = Some(user.user_type);
+      if let Ok(user) = get_user(UserQueryBy::Id(user_id as u32), &state.conn).await {
+        data_entry.label = user.label;
+        data_entry.r#type = Some(user.user_type);
+      }
     }
     data.push(data_entry);
   }
@@ -213,13 +214,13 @@ pub async fn create_comment(
   let mut avatar = get_avatar("anonymous");
   let mut new_comment = create_comment_model(
     None,
-    comment,
+    comment.clone(),
     link,
     email.clone(),
     nick.clone(),
     ua.clone(),
-    url,
-    ip,
+    url.clone(),
+    ip.clone(),
     pid,
     rid,
   );
@@ -243,13 +244,18 @@ pub async fn create_comment(
       is_admin = true;
     }
   }
-  let app_config = Config::from_env().unwrap();
-  if app_config.comment_audit.is_some() && app_config.comment_audit.unwrap() {
-    new_comment.status = Set("waiting".to_string());
-  }
-  if is_admin {
-    new_comment.status = Set("approved".to_string());
-  }
+  new_comment.status = Set(if state.comment_audit {
+    "waiting".to_string()
+  } else if is_admin
+    || matches!(
+      check_comment(nick, email, ip, comment).await?,
+      CheckResult::Ham
+    )
+  {
+    "approved".to_string()
+  } else {
+    "spam".to_string()
+  });
   let comment = new_comment
     .insert(&state.conn)
     .await
@@ -284,9 +290,29 @@ pub async fn create_comment(
   Ok(data)
 }
 
-pub async fn delete_comment(state: &AppState, id: u32) -> Result<bool, Code> {
+pub async fn delete_comment(state: &AppState, id: u32, email: String) -> Result<(), Code> {
+  let user = get_user(UserQueryBy::Email(email.clone()), &state.conn).await?;
+  let pass = if user.user_type == "administrator" {
+    true
+  } else {
+    if wl_comment::Entity::find()
+      .filter(wl_comment::Column::Id.eq(id))
+      .filter(wl_comment::Column::UserId.eq(user.id))
+      .one(&state.conn)
+      .await
+      .map_err(AppError::from)?
+      .is_some()
+    {
+      true
+    } else {
+      false
+    }
+  };
+  if !pass {
+    return Err(Code::Forbidden);
+  }
   match wl_comment::Entity::delete_by_id(id).exec(&state.conn).await {
-    Ok(_) => Ok(true),
+    Ok(_) => Ok(()),
     Err(_) => Err(Code::Error),
   }
 }

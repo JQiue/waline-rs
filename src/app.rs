@@ -11,7 +11,7 @@ use crate::{
     ui::{self, handler::ui_page},
     user,
   },
-  config::Config,
+  config::EnvConfig,
 };
 
 use actix_cors::Cors;
@@ -21,21 +21,24 @@ use actix_web::{
   HttpResponse,
 };
 use sea_orm::{Database, DatabaseConnection};
+use tracing::info;
 
 #[derive(Debug)]
 pub struct RateLimiter {
+  pub qps: u64,
   pub counter: Mutex<HashMap<String, (usize, Instant)>>,
 }
 
 impl RateLimiter {
-  pub fn new() -> Self {
+  fn new(qps: u64) -> Self {
     RateLimiter {
+      qps,
       counter: Mutex::new(HashMap::new()),
     }
   }
-  pub fn check_and_update(&self, client_ip: &str, qps: u64, count: usize) -> bool {
+  pub fn check_and_update(&self, client_ip: &str, count: usize) -> bool {
     let mut counter = self.counter.lock().unwrap();
-    counter.retain(|_, &mut (_, timestamp)| timestamp.elapsed() < Duration::from_secs(qps));
+    counter.retain(|_, &mut (_, timestamp)| timestamp.elapsed() < Duration::from_secs(self.qps));
     match counter.get_mut(client_ip) {
       Some((cnt, timestamp)) => {
         if *cnt >= count {
@@ -60,6 +63,8 @@ pub struct AppState {
   pub conn: DatabaseConnection,
   pub jwt_token: String,
   pub levels: Option<String>,
+  pub comment_audit: bool,
+  pub login: String,
 }
 
 async fn health_check() -> HttpResponse {
@@ -80,14 +85,28 @@ pub fn config_app(cfg: &mut ServiceConfig) {
 }
 
 pub async fn start() -> impl FnOnce(&mut ServiceConfig) + Send + Clone + 'static {
-  let app_config = Config::from_env().unwrap();
-  let conn = Database::connect(app_config.database_url).await.unwrap();
+  let EnvConfig {
+    database_url,
+    jwt_token,
+    levels,
+    akismet_key,
+    ipqps,
+    comment_audit,
+    login,
+    ..
+  } = EnvConfig::load_env().unwrap();
+  let conn = Database::connect(database_url).await.unwrap();
   conn.ping().await.unwrap();
+  if akismet_key != "false" {
+    info!("The anti-spam system has been activated")
+  }
   let state = AppState {
+    jwt_token,
     conn,
-    jwt_token: app_config.jwt_token,
-    levels: app_config.levels,
-    rate_limiter: Arc::new(RateLimiter::new()),
+    levels,
+    login,
+    comment_audit,
+    rate_limiter: Arc::new(RateLimiter::new(ipqps)),
   };
   move |cfg: &mut ServiceConfig| {
     cfg.service(

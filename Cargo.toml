@@ -1,6 +1,6 @@
 [package]
 name = "waline-mini"
-version = "0.7.1"
+version = "0.9.0"
 edition = "2021"
 publish = false
 
@@ -11,12 +11,16 @@ actix-cors = "=0.7.0"
 actix-web = { version = "=4.5.1", features = ["rustls"] }
 dotenvy = "=0.15.7"
 tracing = "=0.1.40"
-tracing-subscriber = { version = "=0.3.17", features = ["env-filter"] }
+tracing-subscriber = { version = "=0.3.17", features = [
+  "env-filter",
+  "local-time",
+] }
 sea-orm = { version = "1.1.2", features = [
   "sqlx-mysql",
   "sqlx-sqlite",
   "runtime-tokio-rustls",
   "macros",
+  "debug-print",
 ] }
 serde = { version = "=1.0.204", features = ["derive"] }
 serde_json = "=1.0.115"
@@ -38,6 +42,8 @@ regex = "=1.10.3"
 shuttle-actix-web = "=0.49.0"
 tokio = "=1.35.1"
 shuttle-runtime = "=0.49.0"
+instant-akismet = "=0.2.0"
+reqwest = "=0.12.12"
 
 [features]
 default = []

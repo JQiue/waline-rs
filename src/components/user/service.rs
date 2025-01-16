@@ -1,4 +1,5 @@
 use helpers::{
+  hash, jwt,
   time::utc_now,
   uuid::{self, Alphabet},
 };
@@ -12,7 +13,7 @@ use serde_json::{json, Value};
 use crate::{
   app::AppState,
   components::user::model::{has_user, is_first_user, UserQueryBy},
-  config::Config,
+  config::EnvConfig,
   entities::*,
   error::AppError,
   helpers::{
@@ -22,7 +23,7 @@ use crate::{
   response::Code,
 };
 
-use super::model::get_user;
+use super::model::{get_user, is_admin_user, is_first_admin_user};
 
 pub async fn user_register(
   state: &AppState,
@@ -30,16 +31,15 @@ pub async fn user_register(
   email: String,
   password: String,
   url: String,
-  host: String,
+  host_header: String,
   lang: String,
 ) -> Result<Value, Code> {
   let mut data = json!({
     "verify": true
   });
-  let hashed: String =
-    helpers::hash::bcrypt_custom(password.as_bytes(), 8, helpers::hash::Version::TwoA)
-      .map_err(|_| Code::Error)?;
-  let app_config = Config::from_env().unwrap();
+  let hashed: String = hash::bcrypt_custom(password.as_bytes(), 8, helpers::hash::Version::TwoA)
+    .map_err(|_| Code::Error)?;
+  let EnvConfig { site_name, .. } = EnvConfig::load_env().unwrap();
   if has_user(UserQueryBy::Email(email.clone()), &state.conn).await? {
     let user = get_user(UserQueryBy::Email(email.clone()), &state.conn).await?;
     if user.user_type != "administrator" || user.user_type != "guest" {
@@ -55,10 +55,10 @@ pub async fn user_register(
       ));
       let url = format!(
         "http://{}/api/verification?token={}&email={}",
-        host, token, email
+        host_header, token, email
       );
       send_email_notification(CommentNotification {
-        sender_name: app_config.site_name,
+        sender_name: site_name,
         sender_email: email,
         comment_id: 0,
         comment: "".to_string(),
@@ -96,10 +96,10 @@ pub async fn user_register(
     ));
     let url = format!(
       "http://{}/api/verification?token={}&email={}",
-      host, token, email
+      host_header, token, email
     );
     send_email_notification(CommentNotification {
-      sender_name: app_config.site_name,
+      sender_name: site_name,
       sender_email: email,
       comment_id: 0,
       comment: "".to_string(),
@@ -126,7 +126,7 @@ pub async fn user_login(
   if !result {
     return Err(Code::Error);
   }
-  let token = helpers::jwt::sign(user.email.clone(), state.jwt_token.clone(), 86400)
+  let token = helpers::jwt::sign(user.email.clone(), state.jwt_token.clone(), 2592000)
     .map_err(AppError::from)?;
   let mail_md5 = helpers::hash::md5(user.email.as_bytes());
   let data = json!({
@@ -215,13 +215,34 @@ pub async fn set_user_profile(
   Ok(res.is_ok())
 }
 
-/// TODO set user type
 pub async fn set_user_type(
-  _state: &AppState,
-  _user_id: i32,
-  _type: String,
-) -> Result<bool, String> {
-  Err("todo".to_string())
+  state: &AppState,
+  token: String,
+  user_id: u32,
+  r#type: String,
+) -> Result<bool, Code> {
+  println!("start");
+  let email = jwt::verify::<String>(token, state.jwt_token.clone())
+    .map_err(|_| Code::Unauthorized)?
+    .claims
+    .data;
+  if is_admin_user(email.clone(), &state.conn).await? {
+    let mut active_user = get_user(UserQueryBy::Id(user_id), &state.conn)
+      .await?
+      .into_active_model();
+    if is_first_admin_user(user_id, &state.conn).await? {
+      return Err(Code::Forbidden);
+    }
+    active_user.user_type = Set(r#type);
+    active_user
+      .update(&state.conn)
+      .await
+      .map_err(|_| AppError::Database)?;
+    Ok(true)
+  } else {
+    println!("forbidden");
+    Err(Code::Forbidden)
+  }
 }
 
 pub async fn get_user_info_list(state: &AppState, page: u32) -> Result<Value, Code> {

@@ -11,7 +11,6 @@ use crate::{
     comment::{model::*, service},
     user::model::is_admin_user,
   },
-  config::Config,
   error::AppError,
   helpers::header::{extract_ip, extract_token},
   response::{Code, Response},
@@ -107,31 +106,31 @@ async fn create_comment(
     rid,
     at,
   }) = body;
-  let app_config = Config::from_env().unwrap();
   let mut is_admin = false;
   let client_ip = extract_ip(&req);
   let pass = if let Ok(token) = extract_token(&req) {
-    if jwt::verify::<String>(token.clone(), state.jwt_token.clone()).is_err() {
-      false
-    } else if is_admin_user(
-      jwt::verify::<String>(token, state.jwt_token.clone())
-        .unwrap()
-        .claims
-        .data,
-      &state.conn,
-    )
-    .await
-    .unwrap()
-    {
-      is_admin = true;
-      true
-    } else {
-      false
+    match jwt::verify::<String>(token, state.jwt_token.clone()) {
+      Ok(verified_token) => {
+        if is_admin_user(verified_token.claims.data, &state.conn)
+          .await
+          .unwrap()
+        {
+          is_admin = true;
+          true
+        } else {
+          state.rate_limiter.check_and_update(&client_ip, 1)
+        }
+      }
+      Err(err) => {
+        tracing::error!("{}", err);
+        return HttpResponse::Ok().json(Response::<()>::error(Code::Unauthorized, Some(&lang)));
+      }
     }
   } else {
-    state
-      .rate_limiter
-      .check_and_update(&client_ip, app_config.ipqps, 1)
+    if &state.login == "force" {
+      return HttpResponse::Ok().json(Response::<()>::error(Code::Unauthorized, Some(&lang)));
+    }
+    state.rate_limiter.check_and_update(&client_ip, 1)
   };
   if !pass {
     return HttpResponse::Ok().json(Response::<()>::error(Code::FrequencyLimited, Some(&lang)));
@@ -165,11 +164,22 @@ async fn create_comment(
 }
 
 #[delete("/comment/{id}")]
-pub async fn delete_comment(state: Data<AppState>, path: Path<u32>) -> HttpResponse {
+pub async fn delete_comment(
+  req: HttpRequest,
+  state: Data<AppState>,
+  path: Path<u32>,
+) -> HttpResponse {
   let id = path.into_inner();
-  match service::delete_comment(&state, id).await {
-    Ok(_) => HttpResponse::Ok().json(Response::success(Some(""), None)),
-    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),
+  if let Ok(token) = extract_token(&req) {
+    match jwt::verify::<String>(token, state.jwt_token.clone()) {
+      Ok(data) => match service::delete_comment(&state, id, data.claims.data).await {
+        Ok(_) => HttpResponse::Ok().json(Response::success(Some(""), None)),
+        Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),
+      },
+      Err(_) => HttpResponse::Ok().json(Response::<()>::error(Code::Unauthorized, None)),
+    }
+  } else {
+    HttpResponse::Ok().json(Response::<()>::error(Code::Unauthorized, None))
   }
 }
 

@@ -4,7 +4,7 @@ use lettre::{
 };
 use strfmt::strfmt;
 
-use crate::{config::Config, locales::get_translation};
+use crate::{config::EnvConfig, locales::get_translation};
 
 struct SmtpConfig {
   host: &'static str,
@@ -58,18 +58,23 @@ pub enum NotifyType {
 }
 
 pub fn send_email_notification(notification: CommentNotification) {
-  let app_config = Config::from_env().unwrap();
+  let EnvConfig {
+    site_name,
+    site_url,
+    author_email,
+    ..
+  } = EnvConfig::load_env().unwrap();
   let to;
   let reply_to;
   let subject;
   let body;
   let post_url = format!(
     "{}{}#{}",
-    app_config.site_url, notification.url, notification.comment_id
+    site_url, notification.url, notification.comment_id
   );
   match notification.notify_type {
     NotifyType::NewComment => {
-      if app_config.author_email.is_none() {
+      if author_email.is_none() {
         return;
       }
       let subject_template = get_translation(
@@ -80,18 +85,18 @@ pub fn send_email_notification(notification: CommentNotification) {
         &notification.lang.unwrap_or("en".to_owned()),
         "MAIL_TEMPLATE_ADMIN",
       );
-      subject = strfmt!(&subject_template, site_name => app_config.site_name.clone()).unwrap();
+      subject = strfmt!(&subject_template, site_name => site_name.clone()).unwrap();
       body =
-        strfmt!(&body_template, site_url=> app_config.site_url, site_name=>app_config.site_name, nick=>notification.sender_name, comment=>notification.comment, post_url=>post_url)
+        strfmt!(&body_template, site_url=> site_url, site_name=>site_name, nick=>notification.sender_name, comment=>notification.comment, post_url=>post_url)
           .unwrap();
-      to = app_config.author_email.clone().unwrap();
-      reply_to = app_config.author_email.unwrap();
+      to = author_email.clone().unwrap();
+      reply_to = author_email.unwrap();
     }
     NotifyType::_ReplyComment => {
       subject = "".to_owned();
       body = "".to_owned();
       to = notification.sender_email;
-      reply_to = app_config.author_email.unwrap();
+      reply_to = author_email.unwrap();
     }
     NotifyType::Notify => {
       let subject_template = get_translation(
@@ -102,29 +107,37 @@ pub fn send_email_notification(notification: CommentNotification) {
         &notification.lang.clone().unwrap_or("en".to_owned()),
         "confirm registration",
       );
-      subject = strfmt!(&subject_template, name => app_config.site_name.clone()).unwrap();
+      subject = strfmt!(&subject_template, name => site_name.clone()).unwrap();
       body =
         strfmt!(&body_template, url=> notification.url.clone(), url=> notification.url).unwrap();
       to = notification.sender_email;
       tracing::debug!("Body: {:#?}", body);
-      reply_to = app_config.author_email.unwrap();
+      reply_to = author_email.unwrap();
     }
   }
-  email(to, reply_to, subject, body);
+  mail(to, reply_to, subject, body);
 }
 
-pub fn email(to: String, reply_to: String, subject: String, body: String) {
-  let app_config = Config::from_env().unwrap();
+pub fn mail(to: String, reply_to: String, subject: String, body: String) {
+  let EnvConfig {
+    site_name,
+    smtp_service,
+    smtp_host,
+    smtp_port,
+    smtp_user,
+    smtp_pass,
+    ..
+  } = EnvConfig::load_env().unwrap();
   let host;
   let port;
-  if app_config.smtp_user.is_none() || app_config.smtp_pass.is_none() {
+  if smtp_user.is_none() || smtp_pass.is_none() {
     return;
   }
-  if app_config.smtp_host.is_some() || app_config.smtp_port.is_some() {
-    host = app_config.smtp_host.unwrap();
-    port = app_config.smtp_port.unwrap();
-  } else if app_config.smtp_service.is_some() {
-    let smtp_service = match app_config.smtp_service.unwrap().as_str() {
+  if smtp_host.is_some() || smtp_port.is_some() {
+    host = smtp_host.unwrap();
+    port = smtp_port.unwrap();
+  } else if smtp_service.is_some() {
+    let smtp_service = match smtp_service.unwrap().as_str() {
       "QQ" => SmtpService::QQ,
       "Gmail" => SmtpService::Gmail,
       "126" => SmtpService::NetEase126,
@@ -139,15 +152,11 @@ pub fn email(to: String, reply_to: String, subject: String, body: String) {
   } else {
     return;
   }
-  let email = Message::builder()
+  let msg = Message::builder()
     .from(
-      format!(
-        "{} <{}>",
-        app_config.site_name,
-        app_config.smtp_user.clone().unwrap()
-      )
-      .parse()
-      .unwrap(),
+      format!("{} <{}>", site_name, smtp_user.clone().unwrap())
+        .parse()
+        .unwrap(),
     )
     .reply_to(reply_to.parse().unwrap())
     .to(to.parse().unwrap())
@@ -157,14 +166,11 @@ pub fn email(to: String, reply_to: String, subject: String, body: String) {
     .unwrap();
   let mailer = SmtpTransport::relay(&host)
     .unwrap()
-    .credentials(Credentials::new(
-      app_config.smtp_user.unwrap(),
-      app_config.smtp_pass.unwrap(),
-    ))
+    .credentials(Credentials::new(smtp_user.unwrap(), smtp_pass.unwrap()))
     .port(port)
     .build();
-  match mailer.send(&email) {
-    Ok(v) => println!("{:#?}", v),
+  match mailer.send(&msg) {
+    Ok(resp) => tracing::info!("{:#?}", resp),
     Err(e) => tracing::error!("Could not send email: {e:?}"),
   }
 }

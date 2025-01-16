@@ -17,7 +17,7 @@ pub fn extract_token(req: &HttpRequest) -> Result<String, AppError> {
   let auth_header = req
     .headers()
     .get("Authorization")
-    .ok_or(AppError::AuthorizationError)?
+    .ok_or(AppError::Authorization)?
     .to_str()
     .map_err(AppError::from)?;
   if !auth_header.starts_with("Bearer ") {

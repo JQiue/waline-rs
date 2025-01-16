@@ -14,6 +14,7 @@ pub enum Code {
   Unauthorized,
   FrequencyLimited,
   TokenExpired,
+  Forbidden,
 }
 
 impl Code {
@@ -26,6 +27,7 @@ impl Code {
       Code::Unauthorized => get_translation(lang, "Unauthorized"),
       Code::FrequencyLimited => get_translation(lang, "Comment too fast"),
       Code::TokenExpired => get_translation(lang, "TOKEN_EXPIRED"),
+      Code::Forbidden => get_translation(lang, "FORBIDDEN"),
     }
   }
 }
@@ -48,9 +50,19 @@ impl<T> Response<T> {
   }
 
   pub fn error(code: Code, lang: Option<&str>) -> Self {
+    let errno = match code {
+      Code::Success => 0,
+      Code::Error => 1000,
+      Code::UserRegistered => 1000,
+      Code::DuplicateContent => 1000,
+      Code::Unauthorized => 401,
+      Code::FrequencyLimited => 1000,
+      Code::TokenExpired => 1000,
+      Code::Forbidden => 403,
+    };
     Response {
       data: None,
-      errno: 1000,
+      errno,
       errmsg: code.message(lang.unwrap_or("en")),
     }
   }

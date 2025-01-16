@@ -11,6 +11,7 @@ use crate::{
   app::AppState,
   components::user::{model::*, service},
   helpers::header::{extract_token, extract_token_from_header},
+  prelude::Code,
   response::Response,
 };
 
@@ -80,7 +81,6 @@ async fn get_login_user_info(req: HttpRequest, state: Data<AppState>) -> HttpRes
   }
 }
 
-/// TODO set user profile
 #[put("/user")]
 pub async fn set_user_profile(
   req: HttpRequest,
@@ -94,7 +94,6 @@ pub async fn set_user_profile(
     password,
     avatar,
   }) = body;
-
   match extract_token(&req) {
     Ok(token) => {
       match service::set_user_profile(&state, token, display_name, label, url, password, avatar)
@@ -108,24 +107,23 @@ pub async fn set_user_profile(
   }
 }
 
-/// TODO set user type
-#[put("/token/{user_id}")]
+// WARNING
+#[put("/user/{user_id}")]
 pub async fn set_user_type(
+  req: HttpRequest,
   state: Data<AppState>,
-  path: Path<i32>,
+  path: Path<u32>,
   body: Json<SetUserTypeBody>,
 ) -> HttpResponse {
   let user_id = path.into_inner();
   let Json(SetUserTypeBody { r#type }) = body;
-  match service::set_user_type(&state, user_id, r#type).await {
-    Ok(_) => HttpResponse::Ok().json(json!({
-      "errno": 1000,
-      "errmsg": "",
-    })),
-    Err(_) => HttpResponse::Ok().json(json!({
-      "errno": 1000,
-      "errmsg": "",
-    })),
+  println!("{}", user_id);
+  match extract_token(&req) {
+    Ok(token) => match service::set_user_type(&state, token, user_id, r#type).await {
+      Ok(_) => HttpResponse::Ok().json(Response::<()>::success(None, None)),
+      Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),
+    },
+    Err(_) => HttpResponse::Ok().json(Response::<()>::error(Code::Unauthorized, None)),
   }
 }
 
@@ -156,7 +154,7 @@ pub async fn verification(state: Data<AppState>, query: Query<VerificationQuery>
   }
 }
 
-/// TODO 设置 2fa
+/// TODO set 2fa
 #[post("/token/2fa")]
 pub async fn set_2fa(state: Data<AppState>, body: Json<Set2faBody>) -> HttpResponse {
   let Json(Set2faBody { code, secret }) = body;
@@ -179,7 +177,7 @@ pub async fn get_2fa(state: Data<AppState>, query: Query<Get2faQuery>) -> HttpRe
     Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), Some(&lang))),
     Err(_) => HttpResponse::Ok().json(json!({
       "errno": 1000,
-      "errmsg": "二部验证失败"
+      "errmsg": "二步验证失败"
     })),
   }
 }
