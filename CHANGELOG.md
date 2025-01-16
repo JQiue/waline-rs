@@ -2,11 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.9.1](https://github.com/JQiue/waline-rs/compare/v0.9.0..0.9.1) - 2025-01-16
+## [0.9.2](https://github.com/JQiue/waline-rs/compare/v0.9.1..0.9.2) - 2025-01-16
+
+### 🐛 Bug Fixes
+
+- Disable reqwest's default features to compile through - ([aedfb85](https://github.com/JQiue/waline-rs/commit/aedfb850d0be642cc6eb7ed67cbb391a8925079a))
+
+## [0.9.1](https://github.com/JQiue/waline-rs/compare/v0.9.0..v0.9.1) - 2025-01-16
 
 ### 🐛 Bug Fixes
 
 - Update the request to use the rustls-tls feature for fixing build errors - ([2b99c46](https://github.com/JQiue/waline-rs/commit/2b99c4613a11f8f93ed108b55b41cbe59de7103f))
+
+### ⚙️ Miscellaneous Tasks
+
+- Release waline-mini version 0.9.1 - ([04e9315](https://github.com/JQiue/waline-rs/commit/04e9315b509a41da4b656313b50f941e40739097))
 
 ## [0.9.0](https://github.com/JQiue/waline-rs/compare/v0.8.0..v0.9.0) - 2025-01-16
 
