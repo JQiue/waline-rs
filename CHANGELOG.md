@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.9.0](https://github.com/JQiue/waline-rs/compare/v0.8.0..0.9.0) - 2025-01-16
+## [0.9.1](https://github.com/JQiue/waline-rs/compare/v0.9.0..0.9.1) - 2025-01-16
+
+### 🐛 Bug Fixes
+
+- Update the request to use the rustls-tls feature for fixing build errors - ([2b99c46](https://github.com/JQiue/waline-rs/commit/2b99c4613a11f8f93ed108b55b41cbe59de7103f))
+
+## [0.9.0](https://github.com/JQiue/waline-rs/compare/v0.8.0..v0.9.0) - 2025-01-16
 
 ### 🚀 Features
 
@@ -29,6 +35,7 @@ All notable changes to this project will be documented in this file.
 - Update README and add Chinese translation - ([d92669b](https://github.com/JQiue/waline-rs/commit/d92669b0e438602dfae917c0bad91d743c2b7c07))
 - Update copyright year in LICENSE file - ([8842b85](https://github.com/JQiue/waline-rs/commit/8842b85811c62d7f06dab093f1b04e64944824cf))
 - Update README to include Shuttle deployment instructions - ([c67926a](https://github.com/JQiue/waline-rs/commit/c67926aadb3f4dbced034889196899a6de5ea7ea))
+- Release waline-mini version 0.9.0 - ([1001811](https://github.com/JQiue/waline-rs/commit/10018115a3466b0d114bfb7db648f79c3467c2fe))
 
 ## [0.8.0](https://github.com/JQiue/waline-rs/compare/v0.7.1..v0.8.0) - 2025-01-07
 
