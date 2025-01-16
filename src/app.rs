@@ -65,6 +65,7 @@ pub struct AppState {
   pub jwt_token: String,
   pub levels: Option<String>,
   pub comment_audit: bool,
+  pub login: String,
 }
 
 async fn health_check() -> HttpResponse {
@@ -97,6 +98,7 @@ pub async fn start() -> Result<(), AppError> {
     akismet_key,
     ipqps,
     comment_audit,
+    login,
     ..
   } = EnvConfig::load_env()?;
   let conn = Database::connect(database_url).await?;
@@ -108,6 +110,7 @@ pub async fn start() -> Result<(), AppError> {
     jwt_token,
     conn,
     levels,
+    login,
     comment_audit,
     rate_limiter: Arc::new(RateLimiter::new(ipqps)),
   };

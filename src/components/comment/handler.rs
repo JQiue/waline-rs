@@ -121,9 +121,17 @@ async fn create_comment(
           false
         }
       }
-      Err(_) => false,
+      Err(_) => {
+        if &state.login == "force" {
+          return HttpResponse::Ok().json(Response::<()>::error(Code::Unauthorized, Some(&lang)));
+        }
+        false
+      }
     }
   } else {
+    if &state.login == "force" {
+      return HttpResponse::Ok().json(Response::<()>::error(Code::Unauthorized, Some(&lang)));
+    }
     state.rate_limiter.check_and_update(&client_ip, 1)
   };
   if !pass {

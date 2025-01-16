@@ -38,6 +38,10 @@ fn default_comment_audit() -> bool {
   false
 }
 
+fn default_login() -> String {
+  "no".to_string()
+}
+
 #[derive(Deserialize, Debug)]
 pub struct EnvConfig {
   #[serde(default = "default_workers")]
@@ -63,6 +67,8 @@ pub struct EnvConfig {
   pub comment_audit: bool,
   #[serde(default = "default_akismet_key")]
   pub akismet_key: String,
+  #[serde(default = "default_login")]
+  pub login: String,
 }
 
 impl EnvConfig {

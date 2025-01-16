@@ -48,9 +48,18 @@ impl<T> Response<T> {
   }
 
   pub fn error(code: Code, lang: Option<&str>) -> Self {
+    let errno = match code {
+      Code::Success => 0,
+      Code::Error => 1000,
+      Code::UserRegistered => 1000,
+      Code::DuplicateContent => 1000,
+      Code::Unauthorized => 401,
+      Code::FrequencyLimited => 1000,
+      Code::TokenExpired => 1000,
+    };
     Response {
       data: None,
-      errno: 1000,
+      errno,
       errmsg: code.message(lang.unwrap_or("en")),
     }
   }

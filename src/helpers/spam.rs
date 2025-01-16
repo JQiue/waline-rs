@@ -13,6 +13,9 @@ pub async fn check_comment(
     akismet_key,
     ..
   } = EnvConfig::load_env()?;
+  if akismet_key == "false" {
+    return Ok(CheckResult::Ham);
+  }
   let akismet_client = AkismetClient::new(
     String::from(site_url),    // The URL for your blog
     akismet_key,               // Your Akismet API key
