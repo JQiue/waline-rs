@@ -66,7 +66,7 @@ pub async fn is_first_user(conn: &DatabaseConnection) -> Result<bool, Code> {
   Ok(users.is_empty())
 }
 
-pub async fn is_first_admin_user(email: String, conn: &DatabaseConnection) -> Result<bool, Code> {
+pub async fn is_first_admin_user(id: u32, conn: &DatabaseConnection) -> Result<bool, Code> {
   let users = wl_users::Entity::find()
     .filter(wl_users::Column::UserType.eq("administrator"))
     .order_by_asc(wl_users::Column::CreatedAt)
@@ -74,7 +74,7 @@ pub async fn is_first_admin_user(email: String, conn: &DatabaseConnection) -> Re
     .await
     .map_err(AppError::from)?;
   if let Some(first_user) = users.first() {
-    Ok(first_user.email == email)
+    Ok(first_user.id == id)
   } else {
     Ok(false)
   }

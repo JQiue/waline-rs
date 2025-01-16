@@ -10,7 +10,7 @@ use crate::{
   app::AppState,
   components::{
     comment::model::*,
-    user::model::{get_user, is_admin_user, is_first_admin_user, UserQueryBy},
+    user::model::{get_user, is_admin_user, UserQueryBy},
   },
   entities::wl_comment,
   error::AppError,

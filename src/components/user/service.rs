@@ -23,7 +23,7 @@ use crate::{
   response::Code,
 };
 
-use super::model::{get_user, is_admin_user};
+use super::model::{get_user, is_admin_user, is_first_admin_user};
 
 pub async fn user_register(
   state: &AppState,
@@ -221,14 +221,18 @@ pub async fn set_user_type(
   user_id: u32,
   r#type: String,
 ) -> Result<bool, Code> {
+  println!("start");
   let email = jwt::verify::<String>(token, state.jwt_token.clone())
-    .map_err(AppError::from)?
+    .map_err(|_| Code::Unauthorized)?
     .claims
     .data;
   if is_admin_user(email.clone(), &state.conn).await? {
     let mut active_user = get_user(UserQueryBy::Id(user_id), &state.conn)
       .await?
       .into_active_model();
+    if is_first_admin_user(user_id, &state.conn).await? {
+      return Err(Code::Forbidden);
+    }
     active_user.user_type = Set(r#type);
     active_user
       .update(&state.conn)
@@ -236,7 +240,8 @@ pub async fn set_user_type(
       .map_err(|_| AppError::Database)?;
     Ok(true)
   } else {
-    Err(AppError::Error.into())
+    println!("forbidden");
+    Err(Code::Forbidden)
   }
 }
 
