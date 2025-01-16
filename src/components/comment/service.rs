@@ -12,7 +12,6 @@ use crate::{
     comment::model::*,
     user::model::{get_user, is_admin_user, UserQueryBy},
   },
-  config::Config,
   entities::wl_comment,
   error::AppError,
   helpers::{
@@ -92,9 +91,10 @@ pub async fn get_comment_info(
     }
     let mut parrent_data_entry = build_data_entry(parrent_comment.clone(), level);
     if let Some(user_id) = parrent_data_entry.user_id {
-      let user = get_user(UserQueryBy::Id(user_id as u32), &state.conn).await?;
-      parrent_data_entry.label = user.label;
-      parrent_data_entry.r#type = Some(user.user_type);
+      if let Ok(user) = get_user(UserQueryBy::Id(user_id as u32), &state.conn).await {
+        parrent_data_entry.label = user.label;
+        parrent_data_entry.r#type = Some(user.user_type);
+      }
     }
     let subcomments = wl_comment::Entity::find()
       .filter(wl_comment::Column::Url.contains(path.clone()))
@@ -179,11 +179,10 @@ pub async fn get_comment_info_by_admin(
   for comment in comments.iter() {
     let mut data_entry = build_data_entry(comment.clone(), None);
     if let Some(user_id) = data_entry.user_id {
-      let user = get_user(UserQueryBy::Id(user_id as u32), &state.conn)
-        .await
-        .unwrap();
-      data_entry.label = user.label;
-      data_entry.r#type = Some(user.user_type);
+      if let Ok(user) = get_user(UserQueryBy::Id(user_id as u32), &state.conn).await {
+        data_entry.label = user.label;
+        data_entry.r#type = Some(user.user_type);
+      }
     }
     data.push(data_entry);
   }
@@ -245,18 +244,18 @@ pub async fn create_comment(
       is_admin = true;
     }
   }
-  let app_config = Config::from_env().unwrap();
-  if app_config.comment_audit.is_some() && app_config.comment_audit.unwrap() {
-    new_comment.status = Set("waiting".to_string());
-  }
-  if let CheckResult::Ham = check_comment(nick, email, ip, comment).await? {
-    new_comment.status = Set("approved".to_string());
+  new_comment.status = Set(if state.comment_audit {
+    "waiting".to_string()
+  } else if is_admin
+    || matches!(
+      check_comment(nick, email, ip, comment).await?,
+      CheckResult::Ham
+    )
+  {
+    "approved".to_string()
   } else {
-    new_comment.status = Set("spam".to_string());
-  }
-  if is_admin {
-    new_comment.status = Set("approved".to_string());
-  }
+    "spam".to_string()
+  });
   let comment = new_comment
     .insert(&state.conn)
     .await
