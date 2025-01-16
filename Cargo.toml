@@ -1,6 +1,6 @@
 [package]
 name = "waline-mini"
-version = "0.9.0"
+version = "0.9.1"
 edition = "2021"
 publish = false
 
@@ -43,7 +43,7 @@ shuttle-actix-web = "=0.49.0"
 tokio = "=1.35.1"
 shuttle-runtime = "=0.49.0"
 instant-akismet = "=0.2.0"
-reqwest = "=0.12.12"
+reqwest = { version = "=0.12.12", features = ["rustls-tls"] }
 
 [features]
 default = []
