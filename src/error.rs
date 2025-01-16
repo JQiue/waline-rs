@@ -3,19 +3,19 @@ use crate::response::Code;
 #[derive(Debug)]
 pub enum AppError {
   Error,
-  DatabaseError,
+  Database,
   UserNotFound,
-  AuthorizationError,
+  Authorization,
   Akismet,
 }
 
 impl From<AppError> for Code {
   fn from(err: AppError) -> Self {
     let status_code = match err {
-      AppError::DatabaseError => Code::Error,
+      AppError::Database => Code::Error,
       AppError::Error => Code::Error,
       AppError::UserNotFound => Code::Error,
-      AppError::AuthorizationError => Code::Error,
+      AppError::Authorization => Code::Error,
       AppError::Akismet => Code::Error,
     };
     tracing::error!("{:#?}", err);
@@ -26,7 +26,7 @@ impl From<AppError> for Code {
 impl From<sea_orm::DbErr> for AppError {
   fn from(err: sea_orm::DbErr) -> Self {
     tracing::error!("{:#?}", err);
-    AppError::DatabaseError
+    AppError::Database
   }
 }
 
@@ -47,7 +47,7 @@ impl From<envy::Error> for AppError {
 impl From<helpers::jwt::Error> for AppError {
   fn from(err: helpers::jwt::Error) -> Self {
     tracing::error!("{:#?}", err);
-    AppError::AuthorizationError
+    AppError::Authorization
   }
 }
 

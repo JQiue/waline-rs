@@ -14,6 +14,7 @@ pub enum Code {
   Unauthorized,
   FrequencyLimited,
   TokenExpired,
+  Forbidden,
 }
 
 impl Code {
@@ -26,6 +27,7 @@ impl Code {
       Code::Unauthorized => get_translation(lang, "Unauthorized"),
       Code::FrequencyLimited => get_translation(lang, "Comment too fast"),
       Code::TokenExpired => get_translation(lang, "TOKEN_EXPIRED"),
+      Code::Forbidden => get_translation(lang, "FORBIDDEN"),
     }
   }
 }
@@ -56,6 +58,7 @@ impl<T> Response<T> {
       Code::Unauthorized => 401,
       Code::FrequencyLimited => 1000,
       Code::TokenExpired => 1000,
+      Code::Forbidden => 403,
     };
     Response {
       data: None,

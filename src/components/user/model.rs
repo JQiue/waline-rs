@@ -1,4 +1,4 @@
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder};
 use serde::Deserialize;
 
 use crate::error::AppError;
@@ -64,6 +64,20 @@ pub async fn is_first_user(conn: &DatabaseConnection) -> Result<bool, Code> {
     .await
     .map_err(AppError::from)?;
   Ok(users.is_empty())
+}
+
+pub async fn is_first_admin_user(email: String, conn: &DatabaseConnection) -> Result<bool, Code> {
+  let users = wl_users::Entity::find()
+    .filter(wl_users::Column::UserType.eq("administrator"))
+    .order_by_asc(wl_users::Column::CreatedAt)
+    .all(conn)
+    .await
+    .map_err(AppError::from)?;
+  if let Some(first_user) = users.first() {
+    Ok(first_user.email == email)
+  } else {
+    Ok(false)
+  }
 }
 
 pub async fn is_admin_user(email: String, conn: &DatabaseConnection) -> Result<bool, Code> {

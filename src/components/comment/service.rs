@@ -10,7 +10,7 @@ use crate::{
   app::AppState,
   components::{
     comment::model::*,
-    user::model::{get_user, is_admin_user, UserQueryBy},
+    user::model::{get_user, is_admin_user, is_first_admin_user, UserQueryBy},
   },
   entities::wl_comment,
   error::AppError,
@@ -290,9 +290,29 @@ pub async fn create_comment(
   Ok(data)
 }
 
-pub async fn delete_comment(state: &AppState, id: u32) -> Result<bool, Code> {
+pub async fn delete_comment(state: &AppState, id: u32, email: String) -> Result<(), Code> {
+  let user = get_user(UserQueryBy::Email(email.clone()), &state.conn).await?;
+  let pass = if user.user_type == "administrator" {
+    true
+  } else {
+    if wl_comment::Entity::find()
+      .filter(wl_comment::Column::Id.eq(id))
+      .filter(wl_comment::Column::UserId.eq(user.id))
+      .one(&state.conn)
+      .await
+      .map_err(AppError::from)?
+      .is_some()
+    {
+      true
+    } else {
+      false
+    }
+  };
+  if !pass {
+    return Err(Code::Forbidden);
+  }
   match wl_comment::Entity::delete_by_id(id).exec(&state.conn).await {
-    Ok(_) => Ok(true),
+    Ok(_) => Ok(()),
     Err(_) => Err(Code::Error),
   }
 }

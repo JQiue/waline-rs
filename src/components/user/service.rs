@@ -233,7 +233,7 @@ pub async fn set_user_type(
     active_user
       .update(&state.conn)
       .await
-      .map_err(|_| AppError::DatabaseError)?;
+      .map_err(|_| AppError::Database)?;
     Ok(true)
   } else {
     Err(AppError::Error.into())

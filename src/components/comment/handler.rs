@@ -170,14 +170,16 @@ pub async fn delete_comment(
   path: Path<u32>,
 ) -> HttpResponse {
   let id = path.into_inner();
-  match extract_token(&req) {
-    Ok(token) => {}
-    Err(_) => return HttpResponse::Ok().json(Response::<()>::error(Code::Unauthorized, None)),
-  }
-
-  match service::delete_comment(&state, id).await {
-    Ok(_) => HttpResponse::Ok().json(Response::success(Some(""), None)),
-    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),
+  if let Ok(token) = extract_token(&req) {
+    match jwt::verify::<String>(token, state.jwt_token.clone()) {
+      Ok(data) => match service::delete_comment(&state, id, data.claims.data).await {
+        Ok(_) => HttpResponse::Ok().json(Response::success(Some(""), None)),
+        Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),
+      },
+      Err(_) => HttpResponse::Ok().json(Response::<()>::error(Code::Unauthorized, None)),
+    }
+  } else {
+    HttpResponse::Ok().json(Response::<()>::error(Code::Unauthorized, None))
   }
 }
 
