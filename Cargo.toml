@@ -11,7 +11,10 @@ actix-cors = "=0.7.0"
 actix-web = { version = "=4.5.1", features = ["rustls"] }
 dotenvy = "=0.15.7"
 tracing = "=0.1.40"
-tracing-subscriber = { version = "=0.3.17", features = ["env-filter"] }
+tracing-subscriber = { version = "=0.3.17", features = [
+  "env-filter",
+  "local-time",
+] }
 sea-orm = { version = "1.1.2", features = [
   "sqlx-mysql",
   "sqlx-sqlite",
@@ -35,6 +38,8 @@ lettre = { version = "=0.11.11", default-features = false, features = [
 strfmt = "=0.2.4"
 ammonia = "=4.0.0"
 regex = "=1.10.3"
+instant-akismet = "=0.2.0"
+reqwest = "=0.12.12"
 
 [features]
 default = []

@@ -30,6 +30,10 @@ fn default_host() -> String {
   "127.0.0.1".to_string()
 }
 
+fn default_akismet_key() -> String {
+  "86fe49f5ea50".to_string()
+}
+
 #[derive(Deserialize, Debug)]
 pub struct Config {
   #[serde(default = "default_workers")]
@@ -52,6 +56,8 @@ pub struct Config {
   #[serde(default = "default_ipqps")]
   pub ipqps: u64,
   pub comment_audit: Option<bool>,
+  #[serde(default = "default_akismet_key")]
+  pub akismet_key: String,
 }
 
 impl Config {
