@@ -1,5 +1,5 @@
 use helpers::{
-  jwt,
+  hash, jwt,
   time::utc_now,
   uuid::{self, Alphabet},
 };
@@ -13,7 +13,7 @@ use serde_json::{json, Value};
 use crate::{
   app::AppState,
   components::user::model::{has_user, is_first_user, UserQueryBy},
-  config::Config,
+  config::EnvConfig,
   entities::*,
   error::AppError,
   helpers::{
@@ -31,16 +31,15 @@ pub async fn user_register(
   email: String,
   password: String,
   url: String,
-  host: String,
+  host_header: String,
   lang: String,
 ) -> Result<Value, Code> {
   let mut data = json!({
     "verify": true
   });
-  let hashed: String =
-    helpers::hash::bcrypt_custom(password.as_bytes(), 8, helpers::hash::Version::TwoA)
-      .map_err(|_| Code::Error)?;
-  let app_config = Config::from_env().unwrap();
+  let hashed: String = hash::bcrypt_custom(password.as_bytes(), 8, helpers::hash::Version::TwoA)
+    .map_err(|_| Code::Error)?;
+  let EnvConfig { site_name, .. } = EnvConfig::load_env().unwrap();
   if has_user(UserQueryBy::Email(email.clone()), &state.conn).await? {
     let user = get_user(UserQueryBy::Email(email.clone()), &state.conn).await?;
     if user.user_type != "administrator" || user.user_type != "guest" {
@@ -56,10 +55,10 @@ pub async fn user_register(
       ));
       let url = format!(
         "http://{}/api/verification?token={}&email={}",
-        host, token, email
+        host_header, token, email
       );
       send_email_notification(CommentNotification {
-        sender_name: app_config.site_name,
+        sender_name: site_name,
         sender_email: email,
         comment_id: 0,
         comment: "".to_string(),
@@ -97,10 +96,10 @@ pub async fn user_register(
     ));
     let url = format!(
       "http://{}/api/verification?token={}&email={}",
-      host, token, email
+      host_header, token, email
     );
     send_email_notification(CommentNotification {
-      sender_name: app_config.site_name,
+      sender_name: site_name,
       sender_email: email,
       comment_id: 0,
       comment: "".to_string(),

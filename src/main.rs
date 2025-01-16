@@ -14,20 +14,17 @@ mod traits;
 
 #[actix_web::main]
 async fn main() -> Result<(), error::AppError> {
-  std::env::set_var("RUST_LOG", "info");
-  let filter = filter::Targets::new()
-    .with_default(LevelFilter::INFO)
-    .with_target("actix-web", LevelFilter::INFO)
-    .with_target("waline-mini", LevelFilter::INFO)
-    .with_target("sqlx::query", LevelFilter::OFF);
+  let target_filter = filter::Targets::new()
+    .with_default(LevelFilter::TRACE)
+    .with_target("sqlx::query", LevelFilter::OFF)
+    .with_target("rustls", LevelFilter::OFF);
+  let env_filter = EnvFilter::try_from_default_env()
+    .or_else(|_| EnvFilter::try_new("info"))
+    .unwrap();
   tracing_subscriber::registry()
-    .with(
-      tracing_subscriber::fmt::layer()
-        .pretty()
-        .with_timer(fmt::time::LocalTime::rfc_3339()),
-    )
-    .with(filter)
-    .with(EnvFilter::from_default_env())
+    .with(tracing_subscriber::fmt::layer().with_timer(fmt::time::LocalTime::rfc_3339()))
+    .with(target_filter)
+    .with(env_filter)
     .init();
   app::start().await
 }

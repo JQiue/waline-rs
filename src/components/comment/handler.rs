@@ -11,7 +11,6 @@ use crate::{
     comment::{model::*, service},
     user::model::is_admin_user,
   },
-  config::Config,
   error::AppError,
   helpers::header::{extract_ip, extract_token},
   response::{Code, Response},
@@ -107,7 +106,6 @@ async fn create_comment(
     rid,
     at,
   }) = body;
-  let app_config = Config::from_env().unwrap();
   let mut is_admin = false;
   let client_ip = extract_ip(&req);
   let pass = if let Ok(token) = extract_token(&req) {
@@ -126,9 +124,7 @@ async fn create_comment(
       Err(_) => false,
     }
   } else {
-    state
-      .rate_limiter
-      .check_and_update(&client_ip, app_config.ipqps, 1)
+    state.rate_limiter.check_and_update(&client_ip, 1)
   };
   if !pass {
     return HttpResponse::Ok().json(Response::<()>::error(Code::FrequencyLimited, Some(&lang)));

@@ -34,8 +34,12 @@ fn default_akismet_key() -> String {
   "86fe49f5ea50".to_string()
 }
 
+fn default_comment_audit() -> bool {
+  false
+}
+
 #[derive(Deserialize, Debug)]
-pub struct Config {
+pub struct EnvConfig {
   #[serde(default = "default_workers")]
   pub workers: usize,
   #[serde(default = "default_host")]
@@ -55,13 +59,14 @@ pub struct Config {
   pub levels: Option<String>,
   #[serde(default = "default_ipqps")]
   pub ipqps: u64,
-  pub comment_audit: Option<bool>,
+  #[serde(default = "default_comment_audit")]
+  pub comment_audit: bool,
   #[serde(default = "default_akismet_key")]
   pub akismet_key: String,
 }
 
-impl Config {
-  pub fn from_env() -> Result<Config, AppError> {
+impl EnvConfig {
+  pub fn load_env() -> Result<EnvConfig, AppError> {
     dotenvy::dotenv_override().ok();
     envy::from_env().map_err(AppError::from)
   }

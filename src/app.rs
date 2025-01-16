@@ -11,7 +11,7 @@ use crate::{
     ui::{self, handler::ui_page},
     user,
   },
-  config::Config,
+  config::EnvConfig,
   error::AppError,
 };
 
@@ -22,22 +22,24 @@ use actix_web::{
   App, HttpResponse, HttpServer,
 };
 use sea_orm::{Database, DatabaseConnection};
-use tracing::{debug, info};
+use tracing::info;
 
 #[derive(Debug)]
 pub struct RateLimiter {
+  qps: u64,
   counter: Mutex<HashMap<String, (usize, Instant)>>,
 }
 
 impl RateLimiter {
-  fn new() -> Self {
+  fn new(qps: u64) -> Self {
     RateLimiter {
+      qps,
       counter: Mutex::new(HashMap::new()),
     }
   }
-  pub fn check_and_update(&self, client_ip: &str, qps: u64, count: usize) -> bool {
+  pub fn check_and_update(&self, client_ip: &str, count: usize) -> bool {
     let mut counter = self.counter.lock().unwrap();
-    counter.retain(|_, &mut (_, timestamp)| timestamp.elapsed() < Duration::from_secs(qps));
+    counter.retain(|_, &mut (_, timestamp)| timestamp.elapsed() < Duration::from_secs(self.qps));
     match counter.get_mut(client_ip) {
       Some((cnt, timestamp)) => {
         if *cnt >= count {
@@ -62,6 +64,7 @@ pub struct AppState {
   pub conn: DatabaseConnection,
   pub jwt_token: String,
   pub levels: Option<String>,
+  pub comment_audit: bool,
 }
 
 async fn health_check() -> HttpResponse {
@@ -84,17 +87,29 @@ pub fn config_app(cfg: &mut ServiceConfig) {
 }
 
 pub async fn start() -> Result<(), AppError> {
-  let app_config = Config::from_env()?;
-  let db = Database::connect(app_config.database_url).await?;
-  db.ping().await?;
-  if app_config.akismet_key != "false" {
+  let EnvConfig {
+    workers,
+    host,
+    port,
+    database_url,
+    jwt_token,
+    levels,
+    akismet_key,
+    ipqps,
+    comment_audit,
+    ..
+  } = EnvConfig::load_env()?;
+  let conn = Database::connect(database_url).await?;
+  conn.ping().await?;
+  if akismet_key != "false" {
     info!("The anti-spam system has been activated")
   }
   let state = AppState {
-    jwt_token: app_config.jwt_token,
-    conn: db,
-    levels: app_config.levels,
-    rate_limiter: Arc::new(RateLimiter::new()),
+    jwt_token,
+    conn,
+    levels,
+    comment_audit,
+    rate_limiter: Arc::new(RateLimiter::new(ipqps)),
   };
   HttpServer::new(move || {
     App::new()
@@ -103,8 +118,8 @@ pub async fn start() -> Result<(), AppError> {
       .app_data(web::Data::new(state.clone()))
       .configure(config_app)
   })
-  .bind((app_config.host, app_config.port))?
-  .workers(app_config.workers)
+  .bind((host, port))?
+  .workers(workers)
   .run()
   .await
   .map_err(AppError::from)
