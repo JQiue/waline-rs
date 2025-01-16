@@ -2,7 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.8.0](https://github.com/JQiue/waline-rs/compare/v0.7.1..0.8.0) - 2025-01-07
+## [0.9.0](https://github.com/JQiue/waline-rs/compare/v0.8.0..0.9.0) - 2025-01-16
+
+### 🚀 Features
+
+- Integrate Akismet for spam detection in comments - ([26d2ca1](https://github.com/JQiue/waline-rs/commit/26d2ca1e8a5a405052d413c3b7b738b5982153ee))
+- Extend JWT token expiration to 30 days - ([77a75cf](https://github.com/JQiue/waline-rs/commit/77a75cf04ed23cc96cfa84aa28dc6be655f677b3))
+- Enhance logging configuration with custom filters - ([0fef15b](https://github.com/JQiue/waline-rs/commit/0fef15bedf579f7ef21e2a119ffa53d28249789b))
+- Update configuration structure and improve logging - ([b81e34a](https://github.com/JQiue/waline-rs/commit/b81e34aeac9801c05ec95679f7e6c1790e15416b))
+- Add login field to AppState and handle unauthorized access - ([98ee186](https://github.com/JQiue/waline-rs/commit/98ee1864cb647b7c54c64e156c10c94863213fb3))
+
+### 🐛 Bug Fixes
+
+- Improve comment handler reliability and security - ([adcf84e](https://github.com/JQiue/waline-rs/commit/adcf84eaa50bd4f73ed754f3ae47cddfd2680da0))
+- Correct user type setting logic in service - ([906e5c8](https://github.com/JQiue/waline-rs/commit/906e5c89e4a1b06f551ea977d1962a4c0a78c88d))
+
+### 🚜 Refactor
+
+- Simplify JWT verification logic in comment handler - ([7414ad7](https://github.com/JQiue/waline-rs/commit/7414ad7b6d3d42e3d9427493fbab7d50efeddd89))
+- Improve error handling in user retrieval logic - ([b1bdb0a](https://github.com/JQiue/waline-rs/commit/b1bdb0aced889f0d756e34b51aa22aaf290b168f))
+- Standardize error handling and enhance comment deletion logic - ([74963f3](https://github.com/JQiue/waline-rs/commit/74963f3ea6fda128806b69852e8130253b47f32e))
+
+### ⚙️ Miscellaneous Tasks
+
+- *(docker)* Add Dockerfile and .dockerignore for deployment - ([c775278](https://github.com/JQiue/waline-rs/commit/c7752784cd9a2ff5c46382828ca750564560787c))
+- Update README and add Chinese translation - ([d92669b](https://github.com/JQiue/waline-rs/commit/d92669b0e438602dfae917c0bad91d743c2b7c07))
+- Update copyright year in LICENSE file - ([8842b85](https://github.com/JQiue/waline-rs/commit/8842b85811c62d7f06dab093f1b04e64944824cf))
+- Update README to include Shuttle deployment instructions - ([c67926a](https://github.com/JQiue/waline-rs/commit/c67926aadb3f4dbced034889196899a6de5ea7ea))
+
+## [0.8.0](https://github.com/JQiue/waline-rs/compare/v0.7.1..v0.8.0) - 2025-01-07
 
 ### 🚀 Features
 
@@ -28,7 +56,11 @@ All notable changes to this project will be documented in this file.
 ### ⚙️ Miscellaneous Tasks
 
 - Update leancloud.sh to copy waline-mini from new path - ([3cb32d9](https://github.com/JQiue/waline-rs/commit/3cb32d9106de94d8f4524652fa5a9d7cb6955df6))
+- Release waline-mini version 0.8.0 - ([41765fc](https://github.com/JQiue/waline-rs/commit/41765fc36ef0609aee4f47396bdce9eb9cfd42ac))
 
+## ❤️ New Contributors
+
+* @JQiue made their first contribution
 ## [0.7.1](https://github.com/JQiue/waline-rs/compare/v0.7.0..v0.7.1) - 2025-01-04
 
 ### 🐛 Bug Fixes
