@@ -118,14 +118,12 @@ async fn create_comment(
           is_admin = true;
           true
         } else {
-          false
+          state.rate_limiter.check_and_update(&client_ip, 1)
         }
       }
-      Err(_) => {
-        if &state.login == "force" {
-          return HttpResponse::Ok().json(Response::<()>::error(Code::Unauthorized, Some(&lang)));
-        }
-        false
+      Err(err) => {
+        tracing::error!("{}", err);
+        return HttpResponse::Ok().json(Response::<()>::error(Code::Unauthorized, Some(&lang)));
       }
     }
   } else {
@@ -166,8 +164,17 @@ async fn create_comment(
 }
 
 #[delete("/comment/{id}")]
-pub async fn delete_comment(state: Data<AppState>, path: Path<u32>) -> HttpResponse {
+pub async fn delete_comment(
+  req: HttpRequest,
+  state: Data<AppState>,
+  path: Path<u32>,
+) -> HttpResponse {
   let id = path.into_inner();
+  match extract_token(&req) {
+    Ok(token) => {}
+    Err(_) => return HttpResponse::Ok().json(Response::<()>::error(Code::Unauthorized, None)),
+  }
+
   match service::delete_comment(&state, id).await {
     Ok(_) => HttpResponse::Ok().json(Response::success(Some(""), None)),
     Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),
