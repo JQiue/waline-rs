@@ -28,7 +28,7 @@ woothee = "=0.13.0"
 chrono = "=0.4.37"
 pulldown-cmark = "=0.10.3"
 envy = "=0.4.2"
-helpers = { version = "=0.5.2", features = ["hash", "jwt", "time", "uuid"] }
+helpers = { version = "=0.5.3", features = ["hash", "jwt", "time", "uuid"] }
 lettre = { version = "=0.11.11", default-features = false, features = [
   "builder",
   "hostname",

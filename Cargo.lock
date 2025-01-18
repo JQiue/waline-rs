@@ -1169,9 +1169,9 @@ checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
 name = "helpers"
-version = "0.5.2"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4db9054c0af45ad49fddb2ec93210ce5c45a60cb182e0cdbec8a341f15023b2"
+checksum = "c5791bef6783934115dc362a80fcf2f704718dd99eb24f9a4069d6043e062257"
 dependencies = [
  "base16ct",
  "bcrypt",

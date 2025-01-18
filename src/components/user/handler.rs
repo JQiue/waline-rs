@@ -117,7 +117,6 @@ pub async fn set_user_type(
 ) -> HttpResponse {
   let user_id = path.into_inner();
   let Json(SetUserTypeBody { r#type }) = body;
-  println!("{}", user_id);
   match extract_token(&req) {
     Ok(token) => match service::set_user_type(&state, token, user_id, r#type).await {
       Ok(_) => HttpResponse::Ok().json(Response::<()>::success(None, None)),

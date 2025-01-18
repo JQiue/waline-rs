@@ -37,8 +37,8 @@ pub async fn user_register(
   let mut data = json!({
     "verify": true
   });
-  let hashed: String = hash::bcrypt_custom(password.as_bytes(), 8, helpers::hash::Version::TwoA)
-    .map_err(|_| Code::Error)?;
+  let hashed: String =
+    hash::bcrypt_custom(&password, 8, helpers::hash::Version::TwoA).map_err(|_| Code::Error)?;
   let EnvConfig { site_name, .. } = EnvConfig::load_env().unwrap();
   if has_user(UserQueryBy::Email(email.clone()), &state.conn).await? {
     let user = get_user(UserQueryBy::Email(email.clone()), &state.conn).await?;
@@ -121,13 +121,12 @@ pub async fn user_login(
   password: String,
 ) -> Result<Value, Code> {
   let user = get_user(UserQueryBy::Email(email.clone()), &state.conn).await?;
-  let result =
-    helpers::hash::verify_bcrypt(password.as_bytes(), user.password).map_err(AppError::from)?;
+  let result = hash::verify_bcrypt(&password, &user.password).map_err(AppError::from)?;
   if !result {
     return Err(Code::Error);
   }
-  let token = helpers::jwt::sign(user.email.clone(), state.jwt_token.clone(), 2592000)
-    .map_err(AppError::from)?;
+  let token =
+    helpers::jwt::sign(user.email.clone(), &state.jwt_token, 2592000).map_err(AppError::from)?;
   let mail_md5 = helpers::hash::md5(user.email.as_bytes());
   let data = json!({
     "display_name": user.display_name,
@@ -154,7 +153,7 @@ pub async fn user_login(
 }
 
 pub async fn get_login_user_info(state: &AppState, token: String) -> Result<Value, Code> {
-  let email = helpers::jwt::verify::<String>(token, state.jwt_token.clone())
+  let email = helpers::jwt::verify::<String>(&token, &state.jwt_token)
     .map_err(AppError::from)?
     .claims
     .data;
@@ -188,7 +187,7 @@ pub async fn set_user_profile(
   password: Option<String>,
   avatar: Option<String>,
 ) -> Result<bool, Code> {
-  let email = helpers::jwt::verify::<String>(token, state.jwt_token.to_string())
+  let email = jwt::verify::<String>(&token, &state.jwt_token)
     .map_err(AppError::from)?
     .claims
     .data;
@@ -208,7 +207,7 @@ pub async fn set_user_profile(
     active_user.avatar = Set(Some(avatar));
   }
   if let Some(password) = password {
-    let hashed = helpers::hash::bcrypt(password.as_bytes()).map_err(|_| Code::Error)?;
+    let hashed = helpers::hash::bcrypt(&password).map_err(|_| Code::Error)?;
     active_user.password = Set(hashed);
   }
   let res = active_user.update(&state.conn).await;
@@ -221,8 +220,7 @@ pub async fn set_user_type(
   user_id: u32,
   r#type: String,
 ) -> Result<bool, Code> {
-  println!("start");
-  let email = jwt::verify::<String>(token, state.jwt_token.clone())
+  let email = jwt::verify::<String>(&token, &state.jwt_token)
     .map_err(|_| Code::Unauthorized)?
     .claims
     .data;
@@ -240,7 +238,6 @@ pub async fn set_user_type(
       .map_err(|_| AppError::Database)?;
     Ok(true)
   } else {
-    println!("forbidden");
     Err(Code::Forbidden)
   }
 }
