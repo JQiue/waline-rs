@@ -51,6 +51,7 @@ pub async fn get_comment_info(
     .filter(wl_comment::Column::Url.contains(path.clone()))
     .filter(wl_comment::Column::Pid.is_null())
     .filter(wl_comment::Column::Status.is_not_in(["waiting", "spam"]));
+  let mut is_admin = false;
   if token.is_ok() {
     let token = token.unwrap();
     if jwt::verify::<String>(token.clone(), state.clone().jwt_token).is_ok() {
@@ -59,6 +60,7 @@ pub async fn get_comment_info(
         .claims
         .data;
       if is_admin_user(email, &state.conn).await.unwrap() {
+        is_admin = true;
         select = wl_comment::Entity::find()
           .filter(wl_comment::Column::Url.contains(path.clone()))
           .filter(wl_comment::Column::Pid.is_null())
@@ -89,14 +91,18 @@ pub async fn get_comment_info(
     } else {
       level = None;
     }
-    let mut parrent_data_entry = build_data_entry(parrent_comment.clone(), level);
-    if let Some(user_id) = parrent_data_entry.user_id {
+    let mut parrent_data = build_data_entry(parrent_comment.clone(), level);
+    if let Some(user_id) = parrent_data.user_id {
       if let Ok(user) = get_user(UserQueryBy::Id(user_id as u32), &state.conn).await {
-        parrent_data_entry.label = user.label;
-        parrent_data_entry.r#type = Some(user.user_type);
+        parrent_data.label = user.label;
+        parrent_data.r#type = Some(user.user_type);
       }
     }
-    let subcomments = wl_comment::Entity::find()
+    if is_admin {
+      parrent_data.mail = parrent_comment.mail.clone();
+      parrent_data.ip = parrent_comment.ip.clone();
+    }
+    let mut subcomments = wl_comment::Entity::find()
       .filter(wl_comment::Column::Url.contains(path.clone()))
       .filter(wl_comment::Column::Pid.eq(parrent_comment.id))
       .filter(wl_comment::Column::Status.is_not_in(["waiting", "spam"]))
@@ -104,6 +110,15 @@ pub async fn get_comment_info(
       .all(&state.conn)
       .await
       .map_err(AppError::from)?;
+    if is_admin {
+      subcomments = wl_comment::Entity::find()
+        .filter(wl_comment::Column::Url.contains(path.clone()))
+        .filter(wl_comment::Column::Pid.eq(parrent_comment.id))
+        .order_by(wl_comment::Column::InsertedAt, Order::Asc)
+        .all(&state.conn)
+        .await
+        .map_err(AppError::from)?;
+    }
     count += subcomments.len() as u64;
     for subcomment in subcomments {
       let c = wl_comment::Entity::find()
@@ -119,20 +134,24 @@ pub async fn get_comment_info(
       } else {
         level = None;
       }
-      let mut subcomment_data_entry = build_data_entry(subcomment.clone(), level);
-      if let Some(user_id) = subcomment_data_entry.user_id {
+      let mut subcomment_data = build_data_entry(subcomment.clone(), level);
+      if let Some(user_id) = subcomment_data.user_id {
         let user = get_user(UserQueryBy::Id(user_id as u32), &state.conn).await?;
-        subcomment_data_entry.label = user.label;
-        subcomment_data_entry.r#type = Some(user.user_type);
+        subcomment_data.label = user.label;
+        subcomment_data.r#type = Some(user.user_type);
       }
-      subcomment_data_entry.reply_user = Some(json!({
+      if is_admin {
+        subcomment_data.mail = subcomment_data.mail.clone();
+        subcomment_data.ip = subcomment_data.ip.clone();
+      }
+      subcomment_data.reply_user = Some(json!({
         "avatar": get_avatar(&parrent_comment.mail.clone().unwrap_or("default".to_owned())),
         "link": parrent_comment.link,
         "nick": parrent_comment.nick,
       }));
-      parrent_data_entry.children.push(subcomment_data_entry)
+      parrent_data.children.push(subcomment_data)
     }
-    data.push(parrent_data_entry)
+    data.push(parrent_data)
   }
   Ok(json!({
     "count": count,
