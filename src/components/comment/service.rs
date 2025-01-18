@@ -1,5 +1,8 @@
 use actix_web::rt::spawn;
-use helpers::{jwt, time::utc_now};
+use helpers::{
+  jwt,
+  time::{self, utc_now},
+};
 use instant_akismet::CheckResult;
 use sea_orm::{
   ActiveModelTrait, ColumnTrait, EntityTrait, Order, PaginatorTrait, QueryFilter, QueryOrder, Set,
@@ -347,12 +350,13 @@ pub async fn update_comment(
   _nick: Option<String>,
   ua: Option<String>,
   _url: Option<String>,
+  sticky: Option<i8>,
 ) -> Result<Value, Code> {
-  let updated_at = helpers::time::utc_now();
-  let new_comment;
+  let updated_at = time::utc_now();
+  let updated_comment;
   if let Some(like) = like {
     let comment = get_comment(CommentQueryBy::Id(id), &state.conn).await?;
-    let model = if like {
+    updated_comment = if like {
       wl_comment::ActiveModel {
         id: Set(id),
         like: Set(Some(comment.like.unwrap_or(0) + 1)),
@@ -366,22 +370,30 @@ pub async fn update_comment(
         updated_at: Set(Some(updated_at)),
         ..Default::default()
       }
-    };
-    new_comment = wl_comment::Entity::update(model)
-      .exec(&state.conn)
-      .await
-      .map_err(AppError::from)?;
+    }
+    .update(&state.conn)
+    .await
+    .map_err(AppError::from)?;
   } else if let Some(status) = status {
-    let model = wl_comment::ActiveModel {
+    updated_comment = wl_comment::ActiveModel {
       id: Set(id),
       status: Set(status),
       updated_at: Set(Some(updated_at)),
       ..Default::default()
-    };
-    new_comment = wl_comment::Entity::update(model)
-      .exec(&state.conn)
-      .await
-      .map_err(AppError::from)?;
+    }
+    .update(&state.conn)
+    .await
+    .map_err(AppError::from)?;
+  } else if let Some(sticky) = sticky {
+    updated_comment = wl_comment::ActiveModel {
+      id: Set(id),
+      sticky: Set(Some(sticky)),
+      updated_at: Set(Some(updated_at)),
+      ..Default::default()
+    }
+    .update(&state.conn)
+    .await
+    .map_err(AppError::from)?;
   } else {
     let model = wl_comment::ActiveModel {
       id: Set(id),
@@ -389,42 +401,40 @@ pub async fn update_comment(
       ua: Set(ua),
       ..Default::default()
     };
-    new_comment = wl_comment::Entity::update(model)
+    updated_comment = wl_comment::Entity::update(model)
       .exec(&state.conn)
       .await
       .map_err(AppError::from)?;
   }
-
-  let (browser, os) = ua::parse(new_comment.ua.unwrap_or("".to_owned()));
-  let like = new_comment.like.unwrap_or(0);
-  let time = new_comment.created_at.unwrap().timestamp_millis();
-  let pid = new_comment.pid;
-  let rid = new_comment.rid;
-  let html_output = render_md_to_html(new_comment.comment.clone().unwrap().as_str());
-
+  let (browser, os) = ua::parse(updated_comment.ua.unwrap_or("".to_owned()));
+  let like = updated_comment.like.unwrap_or(0);
+  let time = updated_comment.created_at.unwrap().timestamp_millis();
+  let pid = updated_comment.pid;
+  let rid = updated_comment.rid;
+  let html_output = render_md_to_html(updated_comment.comment.clone().unwrap().as_str());
   if is_anonymous(id, &state.conn).await? {
     let data = json!({
       "addr":"",
       "avatar": get_avatar("anonymous"),
       "browser": browser,
       "comment": html_output,
-      "ip": new_comment.ip,
-      "mail": new_comment.mail,
-      "user_id": new_comment.user_id,
+      "ip": updated_comment.ip,
+      "mail": updated_comment.mail,
+      "user_id": updated_comment.user_id,
       "like": like,
-      "link": new_comment.link,
-      "nick": new_comment.nick,
-      "objectId": new_comment.id,
-      "orig": new_comment.comment,
+      "link": updated_comment.link,
+      "nick": updated_comment.nick,
+      "objectId": updated_comment.id,
+      "orig": updated_comment.comment,
       "os": os,
-      "status": new_comment.status,
+      "status": updated_comment.status,
       "time": time,
-      "url": new_comment.url,
+      "url": updated_comment.url,
     });
     Ok(data)
   } else {
     let user = get_user(
-      UserQueryBy::Id(new_comment.user_id.unwrap() as u32),
+      UserQueryBy::Id(updated_comment.user_id.unwrap() as u32),
       &state.conn,
     )
     .await?;
@@ -433,20 +443,20 @@ pub async fn update_comment(
       "avatar": get_avatar(&user.email),
       "browser": browser,
       "comment": html_output,
-      "ip": new_comment.ip,
+      "ip": updated_comment.ip,
       "label": user.label,
       "mail": user.email.clone(),
       "type": user.user_type,
-      "user_id": new_comment.user_id,
+      "user_id": updated_comment.user_id,
       "like": like,
-      "link": new_comment.link,
-      "nick": new_comment.nick,
-      "objectId": new_comment.id,
-      "orig": new_comment.comment,
+      "link": updated_comment.link,
+      "nick": updated_comment.nick,
+      "objectId": updated_comment.id,
+      "orig": updated_comment.comment,
       "os": os,
-      "status": new_comment.status,
+      "status": updated_comment.status,
       "time": time,
-      "url": new_comment.url,
+      "url": updated_comment.url,
     });
     if let Some(pid) = pid {
       data["pid"] = json!(pid);

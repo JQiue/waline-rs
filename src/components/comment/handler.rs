@@ -198,9 +198,13 @@ async fn update_comment(
     nick,
     ua,
     url,
+    sticky,
   }) = body;
   let id: u32 = path.into_inner();
-  match service::update_comment(&state, id, status, like, comment, link, mail, nick, ua, url).await
+  match service::update_comment(
+    &state, id, status, like, comment, link, mail, nick, ua, url, sticky,
+  )
+  .await
   {
     Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), None)),
     Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),

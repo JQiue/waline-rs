@@ -289,4 +289,5 @@ pub struct UpdateCommentBody {
   pub nick: Option<String>,
   pub ua: Option<String>,
   pub url: Option<String>,
+  pub sticky: Option<i8>,
 }
