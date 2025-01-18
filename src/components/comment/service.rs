@@ -51,21 +51,21 @@ pub async fn get_comment_info(
     sort_ord = Order::Desc;
   }
   let mut select = wl_comment::Entity::find()
-    .filter(wl_comment::Column::Url.contains(path.clone()))
+    .filter(wl_comment::Column::Url.contains(&path))
     .filter(wl_comment::Column::Pid.is_null())
     .filter(wl_comment::Column::Status.is_not_in(["waiting", "spam"]));
   let mut is_admin = false;
   if token.is_ok() {
     let token = token.unwrap();
-    if jwt::verify::<String>(token.clone(), state.clone().jwt_token).is_ok() {
-      let email = jwt::verify::<String>(token, state.clone().jwt_token)
+    if jwt::verify::<String>(&token, &state.jwt_token).is_ok() {
+      let email = jwt::verify::<String>(&token, &state.jwt_token)
         .unwrap()
         .claims
         .data;
       if is_admin_user(email, &state.conn).await.unwrap() {
         is_admin = true;
         select = wl_comment::Entity::find()
-          .filter(wl_comment::Column::Url.contains(path.clone()))
+          .filter(wl_comment::Column::Url.contains(&path))
           .filter(wl_comment::Column::Pid.is_null())
       }
     }
@@ -218,7 +218,7 @@ pub async fn get_comment_info_by_admin(
   }))
 }
 
-pub async fn create_comment(
+pub async fn create_comment<'a>(
   state: &AppState,
   comment: String,
   link: String,
@@ -230,7 +230,7 @@ pub async fn create_comment(
   rid: Option<i32>,
   _at: Option<String>,
   ip: String,
-  lang: Option<String>,
+  lang: String,
 ) -> Result<Value, Code> {
   let html_output = render_md_to_html(&comment);
   let mut avatar = get_avatar("anonymous");
@@ -306,7 +306,7 @@ pub async fn create_comment(
       comment: comment.comment.unwrap(),
       url: comment.url.unwrap(),
       notify_type: NotifyType::NewComment,
-      lang,
+      lang: Some(&lang),
     });
   });
   Ok(data)
@@ -317,18 +317,13 @@ pub async fn delete_comment(state: &AppState, id: u32, email: String) -> Result<
   let pass = if user.user_type == "administrator" {
     true
   } else {
-    if wl_comment::Entity::find()
+    wl_comment::Entity::find()
       .filter(wl_comment::Column::Id.eq(id))
       .filter(wl_comment::Column::UserId.eq(user.id))
       .one(&state.conn)
       .await
       .map_err(AppError::from)?
       .is_some()
-    {
-      true
-    } else {
-      false
-    }
   };
   if !pass {
     return Err(Code::Forbidden);
@@ -341,71 +336,66 @@ pub async fn delete_comment(state: &AppState, id: u32, email: String) -> Result<
 
 pub async fn update_comment(
   state: &AppState,
+  email: String,
   id: u32,
   status: Option<String>,
   like: Option<bool>,
   comment: Option<String>,
-  _link: Option<String>,
-  _mail: Option<String>,
-  _nick: Option<String>,
+  link: Option<String>,
+  mail: Option<String>,
+  nick: Option<String>,
   ua: Option<String>,
-  _url: Option<String>,
+  url: Option<String>,
   sticky: Option<i8>,
 ) -> Result<Value, Code> {
-  let updated_at = time::utc_now();
-  let updated_comment;
+  let mut active_comment = wl_comment::ActiveModel {
+    id: Set(id),
+    updated_at: Set(Some(time::utc_now())),
+    ..Default::default()
+  };
+  let user = get_user(UserQueryBy::Email(email), &state.conn).await?;
+  let comment_opt = wl_comment::Entity::find()
+    .filter(wl_comment::Column::Id.eq(id))
+    .filter(wl_comment::Column::UserId.eq(user.id))
+    .one(&state.conn)
+    .await
+    .map_err(AppError::from)?;
+  if comment_opt.is_none() {
+    return Err(Code::Forbidden);
+  }
   if let Some(like) = like {
     let comment = get_comment(CommentQueryBy::Id(id), &state.conn).await?;
-    updated_comment = if like {
-      wl_comment::ActiveModel {
-        id: Set(id),
-        like: Set(Some(comment.like.unwrap_or(0) + 1)),
-        updated_at: Set(Some(updated_at)),
-        ..Default::default()
-      }
-    } else {
-      wl_comment::ActiveModel {
-        id: Set(id),
-        like: Set(Some(comment.like.unwrap_or(0) - 1)),
-        updated_at: Set(Some(updated_at)),
-        ..Default::default()
-      }
-    }
-    .update(&state.conn)
-    .await
-    .map_err(AppError::from)?;
-  } else if let Some(status) = status {
-    updated_comment = wl_comment::ActiveModel {
-      id: Set(id),
-      status: Set(status),
-      updated_at: Set(Some(updated_at)),
-      ..Default::default()
-    }
-    .update(&state.conn)
-    .await
-    .map_err(AppError::from)?;
-  } else if let Some(sticky) = sticky {
-    updated_comment = wl_comment::ActiveModel {
-      id: Set(id),
-      sticky: Set(Some(sticky)),
-      updated_at: Set(Some(updated_at)),
-      ..Default::default()
-    }
-    .update(&state.conn)
-    .await
-    .map_err(AppError::from)?;
-  } else {
-    let model = wl_comment::ActiveModel {
-      id: Set(id),
-      comment: Set(comment),
-      ua: Set(ua),
-      ..Default::default()
-    };
-    updated_comment = wl_comment::Entity::update(model)
-      .exec(&state.conn)
-      .await
-      .map_err(AppError::from)?;
+    active_comment.like = Set(Some(comment.like.unwrap_or(0) + if like { 1 } else { -1 }));
   }
+  if let Some(status) = status {
+    active_comment.status = Set(status);
+  }
+  if let Some(sticky) = sticky {
+    active_comment.sticky = Set(Some(sticky));
+  }
+  if let Some(comment) = comment {
+    active_comment.comment = Set(Some(comment));
+  }
+  if let Some(ua) = ua {
+    active_comment.ua = Set(Some(ua));
+  }
+  if let Some(nick) = nick {
+    active_comment.nick = Set(Some(nick));
+  }
+  if let Some(link) = link {
+    active_comment.link = Set(Some(link));
+  }
+  if let Some(mail) = mail {
+    active_comment.mail = Set(Some(mail));
+  }
+  if let Some(url) = url {
+    active_comment.url = Set(Some(url));
+  }
+
+  let updated_comment = active_comment
+    .update(&state.conn)
+    .await
+    .map_err(AppError::from)?;
   let (browser, os) = ua::parse(updated_comment.ua.unwrap_or("".to_owned()));
   let like = updated_comment.like.unwrap_or(0);
   let time = updated_comment.created_at.unwrap().timestamp_millis();

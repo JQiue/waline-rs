@@ -32,7 +32,7 @@ pub async fn user_register(
   password: String,
   url: String,
   host_header: String,
-  lang: String,
+  lang: &str,
 ) -> Result<Value, Code> {
   let mut data = json!({
     "verify": true

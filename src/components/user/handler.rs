@@ -42,7 +42,7 @@ pub async fn user_register(
       .to_str()
       .unwrap()
       .to_string(),
-    lang.clone(),
+    &lang,
   )
   .await
   {

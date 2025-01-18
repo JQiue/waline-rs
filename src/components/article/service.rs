@@ -12,15 +12,15 @@ pub async fn get_article(
   let mut data = vec![];
   if r#type == "time" {
     for path in path.split(',') {
-      if has_counter(CounterQueryBy::Url(path.to_owned()), &state.conn).await? {
-        let counter = get_counter(CounterQueryBy::Url(path.to_owned()), &state.conn).await?;
+      if has_counter(&CounterQueryBy::Url(path), &state.conn).await? {
+        let counter = get_counter(&CounterQueryBy::Url(path), &state.conn).await?;
         data.push(json!({"time": counter.time}));
       } else {
         data.push(json!({"time": 0}));
       }
     }
   } else {
-    let model = get_counter(CounterQueryBy::Url(path), &state.conn).await?;
+    let model = get_counter(&CounterQueryBy::Url(&path), &state.conn).await?;
     data.push(json!({
       "reaction0": model.reaction0,
       "reaction1": model.reaction1,
@@ -41,8 +41,8 @@ pub async fn update_article(
 ) -> Result<Vec<wl_counter::Model>, Code> {
   let mut data = vec![];
   if r#type == "time" {
-    let counter = if has_counter(CounterQueryBy::Url(path.to_owned()), &state.conn).await? {
-      get_counter(CounterQueryBy::Url(path.to_owned()), &state.conn).await?
+    let counter = if has_counter(&CounterQueryBy::Url(&path), &state.conn).await? {
+      get_counter(&CounterQueryBy::Url(&path), &state.conn).await?
     } else {
       create_counter(path, &state.conn).await?
     };
@@ -130,7 +130,7 @@ pub async fn update_article(
       }
       counter
     }
-    let mut counter = get_counter(CounterQueryBy::Url(path), &state.conn).await?;
+    let mut counter = get_counter(&CounterQueryBy::Url(&path), &state.conn).await?;
     counter = set_reaction_value(counter, &r#type, action);
     data.push(
       counter

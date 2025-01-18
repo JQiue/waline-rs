@@ -40,13 +40,13 @@ pub async fn create_counter(
   Ok(counter)
 }
 
-pub async fn has_counter(
-  query_by: CounterQueryBy,
+pub async fn has_counter<'a>(
+  query_by: &CounterQueryBy<'a>,
   conn: &DatabaseConnection,
 ) -> Result<bool, Code> {
   let mut query = wl_counter::Entity::find();
   match query_by {
-    CounterQueryBy::Url(url) => query = query.filter(wl_counter::Column::Url.eq(url)),
+    CounterQueryBy::Url(url) => query = query.filter(wl_counter::Column::Url.eq(*url)),
   }
   let res = query
     .one(conn)
@@ -56,21 +56,20 @@ pub async fn has_counter(
   Ok(res.is_ok())
 }
 
-#[derive(Clone)]
-pub enum CounterQueryBy {
-  Url(String),
+pub enum CounterQueryBy<'a> {
+  Url(&'a str),
 }
 
-pub async fn get_counter(
-  query_by: CounterQueryBy,
+pub async fn get_counter<'a>(
+  query_by: &CounterQueryBy<'a>,
   conn: &DatabaseConnection,
 ) -> Result<wl_counter::Model, Code> {
-  if !has_counter(query_by.clone(), conn).await? {
+  if !has_counter(query_by, conn).await? {
     Err(Code::Error)
   } else {
     let mut query = wl_counter::Entity::find();
     match query_by {
-      CounterQueryBy::Url(url) => query = query.filter(wl_counter::Column::Url.eq(url)),
+      CounterQueryBy::Url(url) => query = query.filter(wl_counter::Column::Url.eq(*url)),
     }
     query
       .one(conn)

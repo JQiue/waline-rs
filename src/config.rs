@@ -42,7 +42,7 @@ fn default_login() -> String {
   "no".to_string()
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize)]
 pub struct EnvConfig {
   #[serde(default = "default_workers")]
   pub workers: usize,

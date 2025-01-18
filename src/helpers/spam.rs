@@ -17,7 +17,7 @@ pub async fn check_comment(
     return Ok(CheckResult::Ham);
   }
   let akismet_client = AkismetClient::new(
-    String::from(site_url),    // The URL for your blog
+    site_url,                  // The URL for your blog
     akismet_key,               // Your Akismet API key
     reqwest::Client::new(),    // Reqwest client to use for requests
     AkismetOptions::default(), // AkismetOptions config

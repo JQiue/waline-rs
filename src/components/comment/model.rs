@@ -135,9 +135,11 @@ pub fn get_level(count: usize, levels: &str) -> usize {
 
 pub fn build_data_entry(comment: wl_comment::Model, level: Option<usize>) -> DataEntry {
   let (browser, os) = ua::parse(comment.ua.unwrap_or("".to_owned()));
-  let safe_html = Some(ammonia::clean(&render_md_to_html(
-    &comment.comment.clone().unwrap_or("".to_owned()),
-  )));
+  let safe_html = if let Some(ref comment_text) = comment.comment {
+    Some(ammonia::clean(&render_md_to_html(comment_text)))
+  } else {
+    Some("".to_string())
+  };
   DataEntry {
     status: comment.status,
     like: comment.like,
@@ -147,11 +149,11 @@ pub fn build_data_entry(comment: wl_comment::Model, level: Option<usize>) -> Dat
     user_id: comment.user_id,
     browser,
     os,
-    url: comment.url.clone(),
+    url: comment.url,
     r#type: None,
     object_id: comment.id,
     ip: None,
-    orig: comment.comment.clone(),
+    orig: comment.comment,
     time: comment.created_at.unwrap().timestamp_millis(),
     pid: comment.pid,
     rid: comment.rid,
