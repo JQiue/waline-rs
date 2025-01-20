@@ -224,7 +224,7 @@ pub async fn set_user_type(
     .map_err(|_| Code::Unauthorized)?
     .claims
     .data;
-  if is_admin_user(email.clone(), &state.conn).await? {
+  if is_admin_user(&email, &state.conn).await? {
     let mut active_user = get_user(UserQueryBy::Id(user_id), &state.conn)
       .await?
       .into_active_model();

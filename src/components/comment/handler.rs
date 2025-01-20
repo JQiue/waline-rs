@@ -64,7 +64,7 @@ async fn get_comment_info(
       Ok(token_data) => token_data.claims.data,
       Err(err) => return HttpResponse::Ok().json(Response::<()>::error(err.into(), Some(&lang))),
     };
-    let is = match is_admin_user(email.clone(), &state.conn).await {
+    let is = match is_admin_user(&email, &state.conn).await {
       Ok(value) => value,
       Err(err) => return HttpResponse::Ok().json(Response::<()>::error(err, Some(&lang))),
     };
@@ -106,18 +106,21 @@ async fn create_comment(
     rid,
     at,
   }) = body;
+  let mut user_type = UserType::Anonymous;
   let mut is_admin = false;
   let client_ip = extract_ip(&req);
   let pass = if let Ok(token) = extract_token(&req) {
     match jwt::verify::<String>(&token, &state.jwt_token) {
       Ok(verified_token) => {
-        if is_admin_user(verified_token.claims.data, &state.conn)
+        if is_admin_user(&verified_token.claims.data, &state.conn)
           .await
           .unwrap()
         {
           is_admin = true;
+          user_type = UserType::Administrator(verified_token.claims.data);
           true
         } else {
+          user_type = UserType::Guest(verified_token.claims.data);
           state.rate_limiter.check_and_update(&client_ip, 1)
         }
       }
@@ -163,6 +166,7 @@ async fn create_comment(
     rid,
     at,
     client_ip,
+    user_type,
     lang.clone(),
   )
   .await

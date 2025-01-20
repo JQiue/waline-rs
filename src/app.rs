@@ -66,6 +66,7 @@ pub struct AppState {
   pub levels: Option<String>,
   pub comment_audit: bool,
   pub login: String,
+  pub forbidden_words: Vec<String>,
 }
 
 async fn health_check() -> HttpResponse {
@@ -99,6 +100,7 @@ pub async fn start() -> Result<(), AppError> {
     ipqps,
     comment_audit,
     login,
+    forbidden_words,
     ..
   } = EnvConfig::load_env()?;
   let conn = Database::connect(database_url).await?;
@@ -112,6 +114,7 @@ pub async fn start() -> Result<(), AppError> {
     levels,
     login,
     comment_audit,
+    forbidden_words,
     rate_limiter: Arc::new(RateLimiter::new(ipqps)),
   };
   HttpServer::new(move || {

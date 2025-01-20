@@ -255,6 +255,21 @@ pub fn create_comment_model(
   }
 }
 
+pub fn has_forbidden_word(comment: &str, forbidden_words: &Vec<String>) -> bool {
+  for word in forbidden_words {
+    if comment.contains(word) {
+      return true;
+    }
+  }
+  false
+}
+
+pub enum UserType {
+  Anonymous,
+  Guest(String),
+  Administrator(String),
+}
+
 #[derive(Deserialize)]
 pub struct CreateCommentQuery {
   pub lang: String,

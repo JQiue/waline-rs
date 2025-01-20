@@ -86,6 +86,8 @@ pub struct EnvConfig {
   pub disable_author_notify: bool,
   #[serde(default, deserialize_with = "deserialize_comma_separated")]
   pub disallow_ip_list: Vec<String>,
+  #[serde(default, deserialize_with = "deserialize_comma_separated")]
+  pub forbidden_words: Vec<String>,
 }
 
 impl EnvConfig {
