@@ -39,11 +39,11 @@ Waline-mini 是原 Waline 评论系统的轻量级 Rust 实现，使用的内存
 | 安全性：防止灌水         | 完全可用 | 稳定   |
 | 安全性：评论审核         | 完全可用 | 稳定   |
 | 安全性：反垃圾评论       | 完全可用 | 稳定   |
-| 安全性：违禁词           | Not      | 进行中 |
-| 安全性：安全域名         | Not      | 进行中 |
-| 安全性：安全域名         | Not      | 进行中 |
-| 安全性：不允许的 IP 列表 | Not      | 进行中 |
-| OAuth                    | Not      | 进行中 |
+| 安全性：违禁词           | 不可用   | 进行中 |
+| 安全性：安全域名         | 不可用   | 进行中 |
+| 安全性：安全域名         | 不可用   | 进行中 |
+| 安全性：不允许的 IP 列表 | 不可用   | 进行中 |
+| OAuth                    | 不可用   | 进行中 |
 | 数据迁移                 | 完全可用 | 稳定   |
 
 ## 使用方法
@@ -100,27 +100,33 @@ git clone -b shuttle https://github.com/JQiue/waline-mini.git
 
 用环境变量配置 waline-mini:
 
-| 环境变量      | 描述                                                                                                                        | 是否需要 | 默认值         |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------- | -------- | -------------- |
-| DATABASE_URL  | SQLite and MySQL/MariaDB 是支持的，随时可以添加编译特性对 PostgreSQL 进行支持。`protocol://username:password@host/database` | ✅        | -              |
-| JWT_TOKEN     | 使用一个随机字符串来生成 JWT 签名密钥 key                                                                                   | ✅        | -              |
-| SITE_NAME     | 网站名称                                                                                                                    | ✅        | -              |
-| SITE_URL      | 网站地址                                                                                                                    | ✅        | -              |
-| SERVER_URL    | 自定义服务器地址                                                                                                            |          | auto           |
-| WORKERS       | 工作线程数                                                                                                                  |          | 1              |
-| LEVELS        | 根据评论的数量给每个用户一个评级标签                                                                                        |          | -              |
-| SMTP_SERVICE  | SMTP 邮件服务提供商：`QQ`，`GMail`，`126`，`163`                                                                            |          | -              |
-| SMTP_HOST     | SMTP 服务器地址                                                                                                             |          | -              |
-| SMTP_PORT     | SMTP 服务器端口                                                                                                             |          | -              |
-| SMTP_USER     | SMTP 用户名                                                                                                                 |          | -              |
-| SMTP_PASS     | SMTP 密码                                                                                                                   |          | -              |
-| AUTHOR_EMAIL  | 博主的邮箱，用来判断发表的评论是否是博主发表的。如果是由博主发布的，则不会有提醒通知                                        |          | -              |
-| IPQPS         | 基于 ip 的评论发布频率以秒为单位限制。设置为`0`表示没有限制                                                                 |          | `60`           |
-| COMMENT_AUDIT | 评论审查开关。启用后，每个评论都需要由管理员批准，因此建议在占位符中提示                                                    |          | `false`        |
-| AKISMET_KEY   | Akismet 反垃圾评论服务 Key (默认开启，不用请设置为`false`)                                                                  |          | `86fe49f5ea50` |
-| LOGIN         | 当设置为`LOGIN=force`时会要求登录才能评论                                                                                   |          | `false`        |
-| HOST          | 监听地址                                                                                                                    |          | `127.0.0.1`    |
-| PORT          | 监听端口                                                                                                                    |          | `8360`         |
+| 环境变量               | 描述                                                                                                                        | 是否需要 | 默认值         |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------- | -------------- |
+| DATABASE_URL           | SQLite and MySQL/MariaDB 是支持的，随时可以添加编译特性对 PostgreSQL 进行支持。`protocol://username:password@host/database` | ✅        | -              |
+| JWT_TOKEN              | 使用一个随机字符串来生成 JWT 签名密钥 key                                                                                   | ✅        | -              |
+| SITE_NAME              | 网站名称                                                                                                                    | ✅        | -              |
+| SITE_URL               | 网站地址                                                                                                                    | ✅        | -              |
+| SERVER_URL             | 自定义服务器地址                                                                                                            |          | auto           |
+| HOST                   | 监听地址                                                                                                                    |          | `127.0.0.1`    |
+| PORT                   | 监听端口                                                                                                                    |          | `8360`         |
+| WORKERS                | 工作线程数                                                                                                                  |          | 1              |
+| LEVELS                 | 根据评论的数量给每个用户一个评级标签                                                                                        |          | -              |
+| SMTP_SERVICE           | SMTP 邮件服务提供商：`QQ`，`GMail`，`126`，`163`                                                                            |          | -              |
+| SMTP_HOST              | SMTP 服务器地址                                                                                                             |          | -              |
+| SMTP_PORT              | SMTP 服务器端口                                                                                                             |          | -              |
+| SMTP_USER              | SMTP 用户名                                                                                                                 |          | -              |
+| SMTP_PASS              | SMTP 密码                                                                                                                   |          | -              |
+| AUTHOR_EMAIL           | 博主的邮箱，用来判断发表的评论是否是博主发表的。如果是由博主发布的，则不会有提醒通知                                        |          | -              |
+| IPQPS                  | 基于 ip 的评论发布频率以秒为单位限制。设置为`0`表示没有限制                                                                 |          | `60`           |
+| COMMENT_AUDIT          | 评论审查开关。启用后，每个评论都需要由管理员批准，因此建议在占位符中提示                                                    |          | `false`        |
+| AKISMET_KEY            | Akismet 反垃圾评论服务 Key (默认开启，不用请设置为`false`)                                                                  |          | `86fe49f5ea50` |
+| LOGIN                  | 当设置为`LOGIN=force`时会要求登录才能评论                                                                                   |          | `false`        |
+| FORBIDDEN_WORDS        | 违禁词配置，包含违禁词的内容会直接标记为垃圾评论                                                                            |          |                |
+| DISALLOW_IP_LIST       | IP 黑名单配置，名单中的 IP 访问会直接返回 403 错误                                                                          |          |                |
+| SECURE_DOMIANS         | 安全域名配置。配置后非该域名来源的请求会返回 403 状态码。支持字符串、正则、数组类型，不配置表示允许所有域名来源             |          |                |
+| DISABLE_AUTHORE_NOTIFY | 是否禁止新评论通知                                                                                                          |          | `false`        |
+| DISABLE_REGION         | 是否隐藏评论者的归属地                                                                                                      |          | `false`        |
+| DISABLE_USERAGENT      | 是否隐藏评论者的 UA                                                                                                         |          | `false`        |
 
 ## 参考
 
