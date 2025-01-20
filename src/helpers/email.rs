@@ -62,6 +62,7 @@ pub fn send_email_notification(notification: CommentNotification) {
     site_name,
     site_url,
     author_email,
+    disable_author_notify,
     ..
   } = EnvConfig::load_env().unwrap();
   let to: &str;
@@ -79,6 +80,9 @@ pub fn send_email_notification(notification: CommentNotification) {
   let lang = notification.lang.unwrap_or("en");
   match notification.notify_type {
     NotifyType::NewComment => {
+      if disable_author_notify {
+        return;
+      }
       let subject_template = get_translation(lang, "MAIL_SUBJECT_ADMIN");
       let body_template = get_translation(lang, "MAIL_TEMPLATE_ADMIN");
       subject = strfmt!(&subject_template, site_name => site_name.clone()).unwrap();

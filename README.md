@@ -24,7 +24,7 @@ In my Ubuntu server, the waline-mini requires only about `5612Kb=5.48MB` of memo
 + **Easy replacement**: Implements most of the necessary apis of the original Waline.
 + **Synchronous update**: Keeping pace with the original Waline's evolution.
 
-## Features
+## Waline Feature Implementation
 
 | Feature                      | Availability | Status      |
 | ---------------------------- | ------------ | ----------- |
@@ -39,6 +39,10 @@ In my Ubuntu server, the waline-mini requires only about `5612Kb=5.48MB` of memo
 | Security: Prevent flooding   | Fully        | Stable      |
 | Security: Comment Review     | Fully        | Stable      |
 | Security: Anti-spam comments | Fully        | Stable      |
+| Security: Forbidden words    | Not          | In Progress |
+| Security: Secure domians     | Not          | In Progress |
+| Security: Disallow IP List   | Fully        | Stable      |
+| OAuth                        | Not          | In Progress |
 | Data migration               | Fully        | Stable      |
 
 ## Usage
@@ -93,27 +97,33 @@ If SQLite is used as the data store, the environment variable `DATABASE_URL` sho
 
 Configure waline-mini with environment variables:
 
-| Environment variable | Description                                                                                                                                               | Require | Default        |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | -------------- |
-| DATABASE_URL         | SQLite and MySQL/MariaDB are supported. Compile features can be added to support PostgreSQL at any time. `protocol://username:password@host/database`     | ✅       | -              |
-| JWT_TOKEN            | A random string is used to generate the JWT Signature key                                                                                                 | ✅       | -              |
-| SITE_NAME            | Site name                                                                                                                                                 | ✅       | -              |
-| SITE_URL             | Site url                                                                                                                                                  | ✅       | -              |
-| SERVER_URL           | Custom Waline server address                                                                                                                              |         | auto           |
-| WORKERS              | Worker thread count                                                                                                                                       |         | 1              |
-| LEVELS               | Give each user a rating label based on the number of comments                                                                                             |         | -              |
-| SMTP_SERVICE         | SMTP mail service provider: `QQ`，`GMail`，`126`，`163`                                                                                                   |         | -              |
-| SMTP_HOST            | SMTP server address                                                                                                                                       |         | -              |
-| SMTP_PORT            | SMTP server port                                                                                                                                          |         | -              |
-| SMTP_USER            | SMTP username                                                                                                                                             |         | -              |
-| SMTP_PASS            | SMTP Password                                                                                                                                             |         | -              |
-| AUTHOR_EMAIL         | The blogger’s email, used to judge whether posted comment is posted by the blogger.If it is posted by the blogger, there will be no reminder notification |         | -              |
-| IPQPS                | IP-based comment posting frequency limit in seconds. Set to `0` for no limit                                                                              |         | `60`           |
-| COMMENT_AUDIT        | Comment audit switcher. When enabled, every comment needs to be approved by admin, so hint in placeholder is recommended                                  |         | `false`        |
-| AKISMET_KEY          | Akismet antispam service key, set `false` if you wanna close it.                                                                                          |         | `86fe49f5ea50` |
-| LOGIN                | User need login before comment when `LOGIN=force`                                                                                                         |         | `false`        |
-| HOST                 | listening host                                                                                                                                            |         | `127.0.0.1`    |
-| PORT                 | listening port                                                                                                                                            |         | `8360`         |
+| Environment variable   | Description                                                                                                                                                                                 | Require | Default        |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | -------------- |
+| DATABASE_URL           | SQLite and MySQL/MariaDB are supported. Compile features can be added to support PostgreSQL at any time. `protocol://username:password@host/database`                                       | ✅       | -              |
+| JWT_TOKEN              | A random string is used to generate the JWT Signature key                                                                                                                                   | ✅       | -              |
+| SITE_NAME              | Site name                                                                                                                                                                                   | ✅       | -              |
+| SITE_URL               | Site url                                                                                                                                                                                    | ✅       | -              |
+| SERVER_URL             | Custom Waline server address                                                                                                                                                                |         | auto           |
+| HOST                   | listening host                                                                                                                                                                              |         | `127.0.0.1`    |
+| PORT                   | listening port                                                                                                                                                                              |         | `8360`         |
+| WORKERS                | Worker thread count                                                                                                                                                                         |         | 1              |
+| LEVELS                 | Give each user a rating label based on the number of comments                                                                                                                               |         | -              |
+| SMTP_SERVICE           | SMTP mail service provider: `QQ`，`GMail`，`126`，`163`                                                                                                                                     |         | -              |
+| SMTP_HOST              | SMTP server address                                                                                                                                                                         |         | -              |
+| SMTP_PORT              | SMTP server port                                                                                                                                                                            |         | -              |
+| SMTP_USER              | SMTP username                                                                                                                                                                               |         | -              |
+| SMTP_PASS              | SMTP Password                                                                                                                                                                               |         | -              |
+| AUTHOR_EMAIL           | The blogger’s email, used to judge whether posted comment is posted by the blogger.If it is posted by the blogger, there will be no reminder notification                                   |         | -              |
+| IPQPS                  | IP-based comment posting frequency limit in seconds. Set to `0` for no limit                                                                                                                |         | `60`           |
+| COMMENT_AUDIT          | Comment audit switcher. When enabled, every comment needs to be approved by admin, so hint in placeholder is recommended                                                                    |         | `false`        |
+| AKISMET_KEY            | Akismet antispam service key, set `false` if you wanna close it.                                                                                                                            |         | `86fe49f5ea50` |
+| LOGIN                  | User need login before comment when `LOGIN=force`                                                                                                                                           |         | `false`        |
+| FORBIDDEN_WORDS        | If a comment match forbidden word, it will be marked as spam                                                                                                                                |         |                |
+| DISALLOW_IP_LIST       | If a comment ip match this list, 403 status code is returned. such as `8.8.8.8,3.3.3.3`                                                                                                     |         |                |
+| SECURE_DOMIANS         | Secure domain settings. Requests from other domain will receive 403 status code. It supports String, Regexp, and Array type. Leaving this config means that all domain referrer are allowed |         |                |
+| DISABLE_AUTHORE_NOTIFY | wether disable author notification                                                                                                                                                          |         | `false`        |
+| DISABLE_REGION         | wether hide commenter's region. Default value is false                                                                                                                                      |         | `false`        |
+| DISABLE_USERAGENT      | wether hide the user agent of commenter. Default value is false                                                                                                                             |         | `false`        |
 
 ## References
 
