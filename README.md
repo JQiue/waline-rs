@@ -39,6 +39,10 @@ In my Ubuntu server, the waline-mini requires only about `5612Kb=5.48MB` of memo
 | Security: Prevent flooding   | Fully        | Stable      |
 | Security: Comment Review     | Fully        | Stable      |
 | Security: Anti-spam comments | Fully        | Stable      |
+| Security: Forbidden words    | Not          | In Progress |
+| Security: Secure domians     | Not          | In Progress |
+| Security: Disallow IP List   | Not          | In Progress |
+| OAuth                        | Not          | In Progress |
 | Data migration               | Fully        | Stable      |
 
 ## Usage
