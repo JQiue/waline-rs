@@ -43,6 +43,10 @@ fn default_login() -> String {
   "no".to_string()
 }
 
+fn default_disable_authore_notify() -> bool {
+  false
+}
+
 fn deserialize_comma_separated<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
 where
   D: Deserializer<'de>,
@@ -78,6 +82,8 @@ pub struct EnvConfig {
   pub akismet_key: String,
   #[serde(default = "default_login")]
   pub login: String,
+  #[serde(default = "default_disable_authore_notify")]
+  pub disable_author_notify: bool,
   #[serde(default, deserialize_with = "deserialize_comma_separated")]
   pub disallow_ip_list: Vec<String>,
 }
