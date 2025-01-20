@@ -24,7 +24,7 @@ In my Ubuntu server, the waline-mini requires only about `5612Kb=5.48MB` of memo
 + **Easy replacement**: Implements most of the necessary apis of the original Waline.
 + **Synchronous update**: Keeping pace with the original Waline's evolution.
 
-## Features
+## Waline Feature Implementation
 
 | Feature                      | Availability | Status      |
 | ---------------------------- | ------------ | ----------- |
