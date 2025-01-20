@@ -42,6 +42,10 @@ fn default_login() -> String {
   "no".to_string()
 }
 
+fn default_disable_authore_notify() -> bool {
+  false
+}
+
 #[derive(Deserialize)]
 pub struct EnvConfig {
   #[serde(default = "default_workers")]
@@ -69,6 +73,8 @@ pub struct EnvConfig {
   pub akismet_key: String,
   #[serde(default = "default_login")]
   pub login: String,
+  #[serde(default = "default_disable_authore_notify")]
+  pub disable_author_notify: bool,
 }
 
 impl EnvConfig {
