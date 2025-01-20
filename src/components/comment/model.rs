@@ -97,6 +97,8 @@ pub struct DataEntry {
   pub avatar: String,
   pub level: Option<usize>,
   pub label: Option<String>,
+  pub sticky: Option<i8>,
+  pub addr: Option<String>,
   pub children: Vec<DataEntry>,
   #[serde(skip_serializing_if = "Option::is_none")]
   pub reply_user: Option<Value>,
@@ -133,23 +135,25 @@ pub fn get_level(count: usize, levels: &str) -> usize {
 
 pub fn build_data_entry(comment: wl_comment::Model, level: Option<usize>) -> DataEntry {
   let (browser, os) = ua::parse(comment.ua.unwrap_or("".to_owned()));
-  let safe_html = Some(ammonia::clean(&render_md_to_html(
-    &comment.comment.clone().unwrap_or("".to_owned()),
-  )));
+  let safe_html = if let Some(ref comment_text) = comment.comment {
+    Some(ammonia::clean(&render_md_to_html(comment_text)))
+  } else {
+    Some("".to_string())
+  };
   DataEntry {
     status: comment.status,
     like: comment.like,
     link: comment.link,
-    mail: comment.mail.clone(),
+    mail: None,
     nick: comment.nick,
     user_id: comment.user_id,
     browser,
     os,
-    url: comment.url.clone(),
+    url: comment.url,
     r#type: None,
     object_id: comment.id,
-    ip: comment.ip,
-    orig: comment.comment.clone(),
+    ip: None,
+    orig: comment.comment,
     time: comment.created_at.unwrap().timestamp_millis(),
     pid: comment.pid,
     rid: comment.rid,
@@ -157,6 +161,8 @@ pub fn build_data_entry(comment: wl_comment::Model, level: Option<usize>) -> Dat
     avatar: get_avatar(&comment.mail.unwrap_or("default".to_owned())),
     level,
     label: None,
+    sticky: comment.sticky,
+    addr: None,
     children: vec![],
     reply_user: None,
   }
@@ -285,4 +291,5 @@ pub struct UpdateCommentBody {
   pub nick: Option<String>,
   pub ua: Option<String>,
   pub url: Option<String>,
+  pub sticky: Option<i8>,
 }

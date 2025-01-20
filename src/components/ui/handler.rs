@@ -17,7 +17,7 @@ pub async fn ui_profile_page(
   query: Query<UIProfilePageQuery>,
 ) -> HttpResponse {
   if query.token.is_some() {
-    if jwt::verify::<String>(query.token.clone().unwrap(), state.jwt_token.clone()).is_ok() {
+    if jwt::verify::<String>(&query.token.clone().unwrap(), &state.jwt_token).is_ok() {
       HttpResponse::Ok()
         .content_type(ContentType::html())
         .body(service::admin_page().await)

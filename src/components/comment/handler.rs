@@ -59,8 +59,7 @@ async fn get_comment_info(
       return HttpResponse::Ok().json(Response::<()>::error(Code::Error, Some(&lang)));
     }
     let token = extract_token(&req).unwrap();
-    let email = match jwt::verify::<String>(token, state.jwt_token.clone()).map_err(AppError::from)
-    {
+    let email = match jwt::verify::<String>(&token, &state.jwt_token).map_err(AppError::from) {
       Ok(token_data) => token_data.claims.data,
       Err(err) => return HttpResponse::Ok().json(Response::<()>::error(err.into(), Some(&lang))),
     };
@@ -109,7 +108,7 @@ async fn create_comment(
   let mut is_admin = false;
   let client_ip = extract_ip(&req);
   let pass = if let Ok(token) = extract_token(&req) {
-    match jwt::verify::<String>(token, state.jwt_token.clone()) {
+    match jwt::verify::<String>(&token, &state.jwt_token) {
       Ok(verified_token) => {
         if is_admin_user(verified_token.claims.data, &state.conn)
           .await
@@ -154,7 +153,7 @@ async fn create_comment(
     rid,
     at,
     client_ip,
-    Some(lang.clone()),
+    lang.clone(),
   )
   .await
   {
@@ -171,7 +170,7 @@ pub async fn delete_comment(
 ) -> HttpResponse {
   let id = path.into_inner();
   if let Ok(token) = extract_token(&req) {
-    match jwt::verify::<String>(token, state.jwt_token.clone()) {
+    match jwt::verify::<String>(&token, &state.jwt_token) {
       Ok(data) => match service::delete_comment(&state, id, data.claims.data).await {
         Ok(_) => HttpResponse::Ok().json(Response::success(Some(""), None)),
         Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),
@@ -185,6 +184,7 @@ pub async fn delete_comment(
 
 #[put("/comment/{id}")]
 async fn update_comment(
+  req: HttpRequest,
   state: Data<AppState>,
   path: Path<u32>,
   body: Json<UpdateCommentBody>,
@@ -198,11 +198,54 @@ async fn update_comment(
     nick,
     ua,
     url,
+    sticky,
   }) = body;
   let id: u32 = path.into_inner();
-  match service::update_comment(&state, id, status, like, comment, link, mail, nick, ua, url).await
-  {
-    Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), None)),
-    Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),
+  if like.is_some() {
+    match service::update_comment(
+      &state,
+      String::new(),
+      id,
+      status,
+      like,
+      comment,
+      link,
+      mail,
+      nick,
+      ua,
+      url,
+      sticky,
+    )
+    .await
+    {
+      Ok(data) => return HttpResponse::Ok().json(Response::success(Some(data), None)),
+      Err(err) => return HttpResponse::Ok().json(Response::<()>::error(err, None)),
+    }
+  }
+  if let Ok(token) = extract_token(&req) {
+    match jwt::verify::<String>(&token, &state.jwt_token) {
+      Ok(data) => match service::update_comment(
+        &state,
+        data.claims.data,
+        id,
+        status,
+        like,
+        comment,
+        link,
+        mail,
+        nick,
+        ua,
+        url,
+        sticky,
+      )
+      .await
+      {
+        Ok(data) => HttpResponse::Ok().json(Response::success(Some(data), None)),
+        Err(err) => HttpResponse::Ok().json(Response::<()>::error(err, None)),
+      },
+      Err(_) => HttpResponse::Ok().json(Response::<()>::error(Code::Unauthorized, None)),
+    }
+  } else {
+    HttpResponse::Ok().json(Response::<()>::error(Code::Unauthorized, None))
   }
 }

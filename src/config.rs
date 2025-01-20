@@ -20,7 +20,7 @@ fn default_login() -> String {
   "no".to_string()
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize)]
 pub struct EnvConfig {
   pub database_url: String,
   pub jwt_token: String,

@@ -41,14 +41,14 @@ impl SmtpService {
   }
 }
 
-pub struct CommentNotification {
+pub struct CommentNotification<'a> {
   pub sender_name: String,
   pub sender_email: String,
   pub comment_id: u32,
   pub comment: String,
   pub url: String,
   pub notify_type: NotifyType,
-  pub lang: Option<String>,
+  pub lang: Option<&'a str>,
 }
 
 pub enum NotifyType {
@@ -64,7 +64,7 @@ pub fn send_email_notification(notification: CommentNotification) {
     author_email,
     ..
   } = EnvConfig::load_env().unwrap();
-  let to;
+  let to: &str;
   let reply_to;
   let subject;
   let body;
@@ -72,53 +72,43 @@ pub fn send_email_notification(notification: CommentNotification) {
     "{}{}#{}",
     site_url, notification.url, notification.comment_id
   );
+  if author_email.is_none() {
+    return;
+  }
+  let author_email = author_email.unwrap();
+  let lang = notification.lang.unwrap_or("en");
   match notification.notify_type {
     NotifyType::NewComment => {
-      if author_email.is_none() {
-        return;
-      }
-      let subject_template = get_translation(
-        &notification.lang.clone().unwrap_or("en".to_owned()),
-        "MAIL_SUBJECT_ADMIN",
-      );
-      let body_template = get_translation(
-        &notification.lang.unwrap_or("en".to_owned()),
-        "MAIL_TEMPLATE_ADMIN",
-      );
+      let subject_template = get_translation(lang, "MAIL_SUBJECT_ADMIN");
+      let body_template = get_translation(lang, "MAIL_TEMPLATE_ADMIN");
       subject = strfmt!(&subject_template, site_name => site_name.clone()).unwrap();
       body =
         strfmt!(&body_template, site_url=> site_url, site_name=>site_name, nick=>notification.sender_name, comment=>notification.comment, post_url=>post_url)
           .unwrap();
-      to = author_email.clone().unwrap();
-      reply_to = author_email.unwrap();
+      to = &author_email;
+      reply_to = &author_email;
     }
     NotifyType::_ReplyComment => {
       subject = "".to_owned();
       body = "".to_owned();
-      to = notification.sender_email;
-      reply_to = author_email.unwrap();
+      to = &notification.sender_email;
+      reply_to = &author_email;
     }
     NotifyType::Notify => {
-      let subject_template = get_translation(
-        &notification.lang.clone().unwrap_or("en".to_owned()),
-        "Registration Confirm Mail",
-      );
-      let body_template = get_translation(
-        &notification.lang.clone().unwrap_or("en".to_owned()),
-        "confirm registration",
-      );
+      let subject_template = get_translation(lang, "Registration Confirm Mail");
+      let body_template = get_translation(lang, "confirm registration");
       subject = strfmt!(&subject_template, name => site_name.clone()).unwrap();
       body =
         strfmt!(&body_template, url=> notification.url.clone(), url=> notification.url).unwrap();
-      to = notification.sender_email;
       tracing::debug!("Body: {:#?}", body);
-      reply_to = author_email.unwrap();
+      to = &notification.sender_email;
+      reply_to = &author_email;
     }
   }
-  mail(to, reply_to, subject, body);
+  mail(to, reply_to, &subject, body);
 }
 
-pub fn mail(to: String, reply_to: String, subject: String, body: String) {
+pub fn mail(to: &str, reply_to: &str, subject: &str, body: String) {
   let EnvConfig {
     site_name,
     smtp_service,
