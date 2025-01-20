@@ -42,7 +42,7 @@ Waline-mini 是原 Waline 评论系统的轻量级 Rust 实现，使用的内存
 | 安全性：违禁词           | 不可用   | 进行中 |
 | 安全性：安全域名         | 不可用   | 进行中 |
 | 安全性：安全域名         | 不可用   | 进行中 |
-| 安全性：不允许的 IP 列表 | 不可用   | 进行中 |
+| 安全性：不允许的 IP 列表 | 完全可用 | 稳定   |
 | OAuth                    | 不可用   | 进行中 |
 | 数据迁移                 | 完全可用 | 稳定   |
 
@@ -122,7 +122,7 @@ git clone -b shuttle https://github.com/JQiue/waline-mini.git
 | AKISMET_KEY            | Akismet 反垃圾评论服务 Key (默认开启，不用请设置为`false`)                                                                  |          | `86fe49f5ea50` |
 | LOGIN                  | 当设置为`LOGIN=force`时会要求登录才能评论                                                                                   |          | `false`        |
 | FORBIDDEN_WORDS        | 违禁词配置，包含违禁词的内容会直接标记为垃圾评论                                                                            |          |                |
-| DISALLOW_IP_LIST       | IP 黑名单配置，名单中的 IP 访问会直接返回 403 错误                                                                          |          |                |
+| DISALLOW_IP_LIST       | IP 黑名单配置，名单中的 IP 访问会直接返回 403 错误，比如：`8.8.8.8,3.3.3.3`                                                 |          |                |
 | SECURE_DOMIANS         | 安全域名配置。配置后非该域名来源的请求会返回 403 状态码。支持字符串、正则、数组类型，不配置表示允许所有域名来源             |          |                |
 | DISABLE_AUTHORE_NOTIFY | 是否禁止新评论通知                                                                                                          |          | `false`        |
 | DISABLE_REGION         | 是否隐藏评论者的归属地                                                                                                      |          | `false`        |

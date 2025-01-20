@@ -11,6 +11,7 @@ use crate::{
     comment::{model::*, service},
     user::model::is_admin_user,
   },
+  config::EnvConfig,
   error::AppError,
   helpers::header::{extract_ip, extract_token},
   response::{Code, Response},
@@ -133,6 +134,15 @@ async fn create_comment(
   };
   if !pass {
     return HttpResponse::Ok().json(Response::<()>::error(Code::FrequencyLimited, Some(&lang)));
+  }
+  if !is_admin {
+    let EnvConfig {
+      disallow_ip_list, ..
+    } = EnvConfig::load_env().unwrap();
+    if disallow_ip_list.contains(&client_ip) {
+      tracing::info!("Comment IP {client_ip} is in disallowIPList");
+      return HttpResponse::Ok().json(Response::<()>::error(Code::Forbidden, Some(&lang)));
+    }
   }
   if is_duplicate(&url, &mail, &nick, &link, &comment, &state.conn)
     .await
