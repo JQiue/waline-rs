@@ -13,6 +13,7 @@ use crate::{
   },
   config::EnvConfig,
   error::AppError,
+  repository::RepositoryManager,
 };
 
 use actix_cors::Cors;
@@ -60,12 +61,14 @@ impl RateLimiter {
 
 #[derive(Debug, Clone)]
 pub struct AppState {
+  pub repo: RepositoryManager,
   pub rate_limiter: Arc<RateLimiter>,
   pub conn: DatabaseConnection,
   pub jwt_token: String,
   pub levels: Option<String>,
   pub comment_audit: bool,
   pub login: String,
+  pub forbidden_words: Vec<String>,
 }
 
 async fn health_check() -> HttpResponse {
@@ -99,6 +102,7 @@ pub async fn start() -> Result<(), AppError> {
     ipqps,
     comment_audit,
     login,
+    forbidden_words,
     ..
   } = EnvConfig::load_env()?;
   let conn = Database::connect(database_url).await?;
@@ -107,11 +111,13 @@ pub async fn start() -> Result<(), AppError> {
     info!("The anti-spam system has been activated")
   }
   let state = AppState {
-    jwt_token,
+    repo: RepositoryManager::new(conn.clone()),
     conn,
+    jwt_token,
     levels,
     login,
     comment_audit,
+    forbidden_words,
     rate_limiter: Arc::new(RateLimiter::new(ipqps)),
   };
   HttpServer::new(move || {

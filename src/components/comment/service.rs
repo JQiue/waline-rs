@@ -35,38 +35,23 @@ pub async fn get_comment_info(
   sort_by: String,
   token: Result<String, AppError>,
 ) -> Result<Value, Code> {
-  let sort_col;
-  let sort_ord;
-  if sort_by == "insertedAt_desc" {
-    sort_col = wl_comment::Column::InsertedAt;
-    sort_ord = Order::Desc;
-  } else if sort_by == "insertedAt_asc" {
-    sort_col = wl_comment::Column::InsertedAt;
-    sort_ord = Order::Asc;
-  } else if sort_by == "like_desc" {
-    sort_col = wl_comment::Column::Like;
-    sort_ord = Order::Desc;
-  } else {
-    sort_col = wl_comment::Column::InsertedAt;
-    sort_ord = Order::Desc;
-  }
+  let (sort_col, sort_ord) = match sort_by.as_str() {
+    "insertedAt_asc" => (wl_comment::Column::InsertedAt, Order::Asc),
+    "like_desc" => (wl_comment::Column::Like, Order::Desc),
+    _ => (wl_comment::Column::InsertedAt, Order::Desc),
+  };
   let mut select = wl_comment::Entity::find()
     .filter(wl_comment::Column::Url.contains(&path))
     .filter(wl_comment::Column::Pid.is_null())
     .filter(wl_comment::Column::Status.is_not_in(["waiting", "spam"]));
   let mut is_admin = false;
-  if token.is_ok() {
-    let token = token.unwrap();
-    if jwt::verify::<String>(&token, &state.jwt_token).is_ok() {
-      let email = jwt::verify::<String>(&token, &state.jwt_token)
-        .unwrap()
-        .claims
-        .data;
-      if is_admin_user(email, &state.conn).await.unwrap() {
+  if let Ok(token) = token {
+    if let Ok(email) = jwt::verify::<String>(&token, &state.jwt_token).map(|t| t.claims.data) {
+      if is_admin_user(&email, &state.conn).await.unwrap_or(false) {
         is_admin = true;
         select = wl_comment::Entity::find()
           .filter(wl_comment::Column::Url.contains(&path))
-          .filter(wl_comment::Column::Pid.is_null())
+          .filter(wl_comment::Column::Pid.is_null());
       }
     }
   }
@@ -88,19 +73,27 @@ pub async fn get_comment_info(
       .count(&state.conn)
       .await
       .map_err(AppError::from)?;
-    let level;
-    if let Some(levels) = &state.levels {
-      level = Some(get_level(c as usize, levels));
-    } else {
-      level = None;
-    }
+    // let level;
+    // if let Some(levels) = &state.levels {
+    //   level = Some(get_level(c as usize, levels));
+    // } else {
+    //   level = None;
+    // }
+
+    let level = state
+      .levels
+      .as_ref()
+      .map(|levels| get_level(c as usize, levels));
+
     let mut parrent_data = build_data_entry(parrent_comment.clone(), level);
+
     if let Some(user_id) = parrent_data.user_id {
       if let Ok(user) = get_user(UserQueryBy::Id(user_id as u32), &state.conn).await {
         parrent_data.label = user.label;
         parrent_data.r#type = Some(user.user_type);
       }
     }
+
     if is_admin {
       parrent_data.mail = parrent_comment.mail.clone();
       parrent_data.ip = parrent_comment.ip.clone();
@@ -131,12 +124,17 @@ pub async fn get_comment_info(
         .count(&state.conn)
         .await
         .map_err(AppError::from)?;
-      let level;
-      if let Some(levels) = &state.levels {
-        level = Some(get_level(c as usize, levels));
-      } else {
-        level = None;
-      }
+      // let level;
+      // if let Some(levels) = &state.levels {
+      //   level = Some(get_level(c as usize, levels));
+      // } else {
+      //   level = None;
+      // }
+      let level = state
+        .levels
+        .as_ref()
+        .map(|levels| get_level(c as usize, levels));
+
       let mut subcomment_data = build_data_entry(subcomment.clone(), level);
       if let Some(user_id) = subcomment_data.user_id {
         let user = get_user(UserQueryBy::Id(user_id as u32), &state.conn).await?;
@@ -222,7 +220,7 @@ pub async fn create_comment<'a>(
   state: &AppState,
   comment: String,
   link: String,
-  email: String,
+  mail: String,
   nick: String,
   ua: String,
   url: String,
@@ -230,6 +228,7 @@ pub async fn create_comment<'a>(
   rid: Option<i32>,
   _at: Option<String>,
   ip: String,
+  user_type: UserType,
   lang: String,
 ) -> Result<Value, Code> {
   let html_output = render_md_to_html(&comment);
@@ -238,7 +237,7 @@ pub async fn create_comment<'a>(
     None,
     comment.clone(),
     link,
-    email.clone(),
+    mail.clone(),
     nick.clone(),
     ua.clone(),
     url.clone(),
@@ -253,31 +252,61 @@ pub async fn create_comment<'a>(
     "os": os,
     "comment": html_output,
   });
-  let user = get_user(UserQueryBy::Email(email.clone()), &state.conn).await;
-  let mut is_admin = false;
-  if let Ok(user) = user {
-    new_comment.user_id = Set(Some(user.id as i32));
-    data["label"] = json!(user.label);
-    data["mail"] = json!(user.email);
-    data["type"] = json!(user.user_type);
-    data["user_id"] = json!(user.id);
-    avatar = get_avatar(&user.email);
-    if user.user_type == "administrator" {
-      is_admin = true;
+  match user_type {
+    UserType::Anonymous => {
+      new_comment.status = Set(if state.comment_audit {
+        "waiting".to_string()
+      } else if has_forbidden_word(&comment, &state.forbidden_words) {
+        "spam".to_string()
+      } else {
+        if matches!(
+          check_comment(nick, mail, ip, comment).await?,
+          CheckResult::Ham
+        ) {
+          "approved".to_string()
+        } else {
+          "spam".to_string()
+        }
+      });
+    }
+    UserType::Guest(email) => {
+      let user = get_user(UserQueryBy::Email(email), &state.conn).await;
+      if let Ok(user) = user {
+        new_comment.user_id = Set(Some(user.id as i32));
+        new_comment.status = Set(if state.comment_audit {
+          "waiting".to_string()
+        } else if has_forbidden_word(&comment, &state.forbidden_words) {
+          "spam".to_string()
+        } else {
+          if matches!(
+            check_comment(nick, mail, ip, comment).await?,
+            CheckResult::Ham
+          ) {
+            "approved".to_string()
+          } else {
+            "spam".to_string()
+          }
+        });
+        data["label"] = json!(user.label);
+        data["mail"] = json!(user.email);
+        data["type"] = json!(user.user_type);
+        data["user_id"] = json!(user.id);
+        avatar = get_avatar(&user.email);
+      }
+    }
+    UserType::Administrator(email) => {
+      let user = get_user(UserQueryBy::Email(email), &state.conn).await;
+      if let Ok(user) = user {
+        new_comment.user_id = Set(Some(user.id as i32));
+        new_comment.status = Set("approved".to_string());
+        data["label"] = json!(user.label);
+        data["mail"] = json!(user.email);
+        data["type"] = json!(user.user_type);
+        data["user_id"] = json!(user.id);
+        avatar = get_avatar(&user.email);
+      }
     }
   }
-  new_comment.status = Set(if state.comment_audit {
-    "waiting".to_string()
-  } else if is_admin
-    || matches!(
-      check_comment(nick, email, ip, comment).await?,
-      CheckResult::Ham
-    )
-  {
-    "approved".to_string()
-  } else {
-    "spam".to_string()
-  });
   let comment = new_comment
     .insert(&state.conn)
     .await

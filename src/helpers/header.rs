@@ -40,3 +40,21 @@ pub fn extract_ip(req: &HttpRequest) -> String {
       .unwrap_or_default()
   }
 }
+
+pub fn extract_host(req: &HttpRequest) -> String {
+  req
+    .headers()
+    .get("Host")
+    .and_then(|h| h.to_str().ok())
+    .unwrap_or_default()
+    .to_string()
+}
+
+pub fn extract_referer(req: &HttpRequest) -> String {
+  req
+    .headers()
+    .get("referer")
+    .and_then(|h| h.to_str().ok())
+    .unwrap_or_default()
+    .to_string()
+}
