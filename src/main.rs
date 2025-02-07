@@ -9,6 +9,7 @@ mod error;
 mod helpers;
 mod locales;
 mod prelude;
+mod repository;
 mod response;
 mod traits;
 
@@ -16,7 +17,7 @@ mod traits;
 async fn main() -> Result<(), error::AppError> {
   let target_filter = filter::Targets::new()
     .with_default(LevelFilter::TRACE)
-    .with_target("sqlx::query", LevelFilter::OFF)
+    .with_target("sqlx::query", LevelFilter::DEBUG)
     .with_target("rustls", LevelFilter::OFF);
   let env_filter = EnvFilter::try_from_default_env()
     .or_else(|_| EnvFilter::try_new("info"))

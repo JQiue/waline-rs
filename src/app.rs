@@ -13,6 +13,7 @@ use crate::{
   },
   config::EnvConfig,
   error::AppError,
+  repository::RepositoryManager,
 };
 
 use actix_cors::Cors;
@@ -60,6 +61,7 @@ impl RateLimiter {
 
 #[derive(Debug, Clone)]
 pub struct AppState {
+  pub repo: RepositoryManager,
   pub rate_limiter: Arc<RateLimiter>,
   pub conn: DatabaseConnection,
   pub jwt_token: String,
@@ -109,8 +111,9 @@ pub async fn start() -> Result<(), AppError> {
     info!("The anti-spam system has been activated")
   }
   let state = AppState {
-    jwt_token,
+    repo: RepositoryManager::new(conn.clone()),
     conn,
+    jwt_token,
     levels,
     login,
     comment_audit,
